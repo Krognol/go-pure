@@ -112,6 +112,46 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			}
 		}
 	}
+
+	iv := u.indirect(v)
+	tv := reflect.TypeOf(v.Interface())
+	println(iv.Kind().String())
+
+	for i := 0; i < iv.NumField(); i++ {
+		tag := tv.Field(i).Tag.Get(tagName)
+		field := iv.Field(i)
+
+		if tag != "" && tag != "-" && tag == u.tagID {
+			switch {
+			case field.Kind() == reflect.Int && u.tagTyp == "int":
+				_i, err := strconv.Atoi(u.tagValue)
+				if err != nil {
+					return u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue))
+				}
+				field.SetInt(int64(_i))
+				return nil
+			case field.Kind() == reflect.String && (u.tagTyp == "string" || u.tagTyp == "quantity" || u.tagTyp == "path"):
+				field.SetString(u.tagValue)
+				return nil
+			case field.Kind() == reflect.Float64 && u.tagTyp == "double":
+				f, err := strconv.ParseFloat(u.tagValue, 64)
+				if err != nil {
+					return u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue))
+				}
+				field.SetFloat(f)
+				return nil
+			case field.Kind() == reflect.Bool && u.tagTyp == "bool":
+				b, err := strconv.ParseBool(u.tagValue)
+				if err != nil {
+					return u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue))
+				}
+				field.SetBool(b)
+				return nil
+			case field.Kind() == reflect.Ptr && u.tagTyp == "group":
+				return u.group(field.Interface())
+			}
+		}
+	}
 	return nil
 }
 
