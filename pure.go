@@ -19,7 +19,7 @@ type unmarshaler struct {
 	tagTyp   string
 }
 
-// Stolen from the Golang JSON decode source. Forgive
+// Shamelessly stolen from the Golang JSON decode source. Forgive
 func (u *unmarshaler) indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
 		v = v.Addr()
