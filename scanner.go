@@ -88,6 +88,11 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 				s.unread()
 				return GROUP, buf.String()
 			}
+
+            if c == '-' || c == '_' {
+                buf.WriteByte(c)
+                continue
+            }
 			s.unread()
 			return IDENTIFIER, buf.String()
 		}
@@ -110,6 +115,11 @@ func (s *scanner) ScanNumber() (tok Token, lit string) {
 		if !IsNumber(c) {
 			if c == '.' {
 				tok = DOUBLE
+				buf.WriteByte(c)
+				continue
+			}
+			if IsAlpha(c) {
+				tok = QUANTITY
 				buf.WriteByte(c)
 				continue
 			}

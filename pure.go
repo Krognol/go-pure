@@ -319,19 +319,22 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "double"
 				}
 			} else if tok == REF {
-				// Referencing currently only works on groups
-				// Trying to reference a property not in a group will not work at the moment
+				var field reflect.Value
 				temp := lit
 				tok, lit = u.ScanSkipWhitespace()
-				group := lit
-				tok, lit = u.ScanSkipWhitespace()
-				tok, lit = u.ScanSkipWhitespace()
-				u.tagID = lit
-				struc := u.GetStruct(group, v)
-				u.tagID = temp
-				field := u.GetField(lit, struc)
-				println(field.IsValid())
-
+				if b := u.Peek(1); b[0] == '.' {
+					group := lit
+					tok, lit = u.ScanSkipWhitespace()
+					tok, lit = u.ScanSkipWhitespace()
+					u.tagID = lit
+					struc := u.GetStruct(group, v)
+					u.tagID = temp
+					field = u.GetField(lit, struc)
+				} else {
+					// Assume it's a regular property and not a group property
+					tok, lit = u.ScanSkipWhitespace()
+					field = u.GetField(u.tagID, u.indirect(reflect.ValueOf(v)))
+				}
 				switch field.Kind() {
 				case reflect.Int:
 					u.tagTyp = "int"
