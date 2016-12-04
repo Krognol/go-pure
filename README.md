@@ -18,32 +18,34 @@ agroup
 package main
 
 import (
-    "github.com/Krognol/go-pure"
-    "ioutil"
+	"io/ioutil"
+	"os"
+
+	"github.com/Krognol/pure"
 )
 
 type T struct {
-        Property int `pure:"intproperty"`
-        Group    *G  `pure:"agroup"`
+	Property int `pure:"intproperty"`
+	Group    *G  `pure:"agroup"`
 }
 
 type G struct {
-    String string `pure:"groupstring"`
-    Double float64 `pure:"double"`
+	String string  `pure:"groupstring"`
+	Double float64 `pure:"double"`
 }
 
 func main() {
-    t := &T{&G{}}
-    b, _ := ioutil.ReadFile("some-pure-file.pure")
-    err := pure.Unmarshal(b, t)
-    if err != nil {
-        println(err.Error())
-        os.Exit(1)
-    }
-    println(t.Property) // => 42
-    println(t.Group.String) // => "Hello, world!"
-    println(t.Double) // => 1.23
-    os.Exit(0)
+	t := &T{0, &G{}}
+	b, _ := ioutil.ReadFile("some-pure-file.pure")
+	err := pure.Unmarshal(b, t)
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
+	}
+	println(t.Property)     // => 42
+	println(t.Group.String) // => "Hello, world!"
+	println(t.Group.Double) // => 1.23
+	os.Exit(0)
 }
 ```
 

@@ -206,13 +206,13 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 	}
 }
 
-func Unmarshal(b []byte, v interface{}) []*pureError {
+func Unmarshal(b []byte, v interface{}) *pureError {
 	u := &unmarshaler{
 		Scanner: newScanner(b),
 	}
 	u.unmarshal(v)
 	if len(u.errors) > 0 {
-		return u.errors
+		return u.errors[0]
 	}
 	return nil //u.unmarshal(v)
 }
