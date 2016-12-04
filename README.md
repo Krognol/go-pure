@@ -61,3 +61,4 @@ func main() {
 - [ ] Arrays
 - [ ] Schema support
 - [ ] Include files
+- [ ] Encoding to Pure format
