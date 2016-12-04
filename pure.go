@@ -319,6 +319,8 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "double"
 				}
 			} else if tok == REF {
+				// Referencing currently only works on groups
+				// Trying to reference a property not in a group will not work at the moment
 				temp := lit
 				tok, lit = u.ScanSkipWhitespace()
 				group := lit
