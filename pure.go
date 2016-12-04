@@ -79,7 +79,6 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		for i := 0; i < iv.NumField(); i++ {
 			tag := iv.Type().Field(i).Tag.Get(tagName)
 			field := iv.Field(i)
-			fmt.Println(field.Kind().String())
 
 			if tag != "" && tag != "-" && tag == u.tagID {
 				switch {
