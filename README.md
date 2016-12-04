@@ -1,6 +1,6 @@
 # go-pure
 
-The Pure specifications can be found [here](https://github.com/pureconfig/pureconfiglink).
+The Pure specifications can be found [here](https://github.com/pureconfig/pureconfig).
 
 # Usage
 Pure file:
