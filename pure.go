@@ -1,6 +1,7 @@
 package pure
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -170,15 +171,37 @@ func (u *unmarshaler) Peek(n int) []byte {
 	return b
 }
 
+func (u *unmarshaler) PeekLiteral() string {
+	var s string
+	byt := u.Scanner.buf.Bytes()
+	buf := bytes.NewBuffer(byt)
+	for {
+		b, _ := buf.ReadByte()
+
+		if IsAlpha(b) {
+			s += string(b)
+			for {
+				b, _ := buf.ReadByte()
+				if IsWhitespace(b) {
+					break
+				}
+				s += string(b)
+			}
+			break
+		}
+	}
+
+	return s
+}
+
 func (u *unmarshaler) group(v interface{}) *pureError {
 	iv := u.indirect(reflect.ValueOf(v))
 	tv := reflect.TypeOf(v)
-
 	for i := 0; i < iv.NumField(); i++ {
 		tag := tv.Elem().Field(i).Tag.Get(tagName)
-		f := iv.Field(i)
 
 		if tag == u.tagID {
+			f := iv.Field(i)
 			for {
 				tok, lit := u.Scan()
 				if tok == EOF {
@@ -198,9 +221,21 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				if tok == DOT || lit == "." {
 					tok, lit = u.ScanSkipWhitespace()
 				}
+
+				if tok == GROUP {
+					struc := u.GetStruct(u.tagID, v)
+					field := u.GetField(lit, struc)
+					u.tagID = u.PeekLiteral()
+					err := u.group(field.Interface())
+					if err != nil {
+						fmt.Println(err.Error())
+					}
+				}
+
 				u.tagID = lit
 
 				tok, lit = u.ScanSkipWhitespace()
+
 				if tok == EQUALS {
 					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
 				}

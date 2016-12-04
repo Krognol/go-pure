@@ -37,6 +37,7 @@ func (s *scanner) scan() (b byte) {
 		s.line++
 		s.col = 0
 	}
+	s.col++
 	return
 }
 
@@ -89,10 +90,10 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 				return GROUP, buf.String()
 			}
 
-            if c == '-' || c == '_' {
-                buf.WriteByte(c)
-                continue
-            }
+			if c == '-' || c == '_' {
+				buf.WriteByte(c)
+				continue
+			}
 			s.unread()
 			return IDENTIFIER, buf.String()
 		}
