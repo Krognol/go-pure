@@ -13,7 +13,7 @@ agroup
     groupstring = "Hello, world!"
 
 refstring => agroup.groupstring
-
+refint => intproperty
 ```
 
 ```go
@@ -30,6 +30,7 @@ type T struct {
 	Property int `pure:"intproperty"`
 	Group    *G  `pure:"agroup"`
 	RefString string `pure:"refstring"`
+	PropRef int `pure:"refint"`
 }
 
 type G struct {
@@ -48,7 +49,8 @@ func main() {
 	println(t.Property)     // => 42
 	println(t.Group.String) // => "Hello, world!"
 	println(t.Group.Double) // => 1.23
-	println(t.RefString) // "Hello, world!"
+	println(t.RefString)    // => "Hello, world!"
+	println(t.PropRef)      // => 42
 	os.Exit(0)
 }
 ```
