@@ -113,46 +113,86 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		}
 	}
 
-	iv := u.indirect(v)
-	tv := reflect.TypeOf(v.Interface())
-	println(iv.Kind().String())
+	if v.Kind() == reflect.Struct {
+		iv := u.indirect(v)
+		tv := reflect.TypeOf(v.Interface())
 
-	for i := 0; i < iv.NumField(); i++ {
-		tag := tv.Field(i).Tag.Get(tagName)
-		field := iv.Field(i)
+		for i := 0; i < iv.NumField(); i++ {
+			tag := tv.Field(i).Tag.Get(tagName)
+			field := iv.Field(i)
 
-		if tag != "" && tag != "-" && tag == u.tagID {
-			switch {
-			case field.Kind() == reflect.Int && u.tagTyp == "int":
-				_i, err := strconv.Atoi(u.tagValue)
-				if err != nil {
-					return u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue))
+			if tag != "" && tag != "-" && tag == u.tagID {
+				switch {
+				case field.Kind() == reflect.Int && u.tagTyp == "int":
+					_i, err := strconv.Atoi(u.tagValue)
+					if err != nil {
+						return u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue))
+					}
+					field.SetInt(int64(_i))
+					return nil
+				case field.Kind() == reflect.String && (u.tagTyp == "string" || u.tagTyp == "quantity" || u.tagTyp == "path"):
+					field.SetString(u.tagValue)
+					return nil
+				case field.Kind() == reflect.Float64 && u.tagTyp == "double":
+					f, err := strconv.ParseFloat(u.tagValue, 64)
+					if err != nil {
+						return u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue))
+					}
+					field.SetFloat(f)
+					return nil
+				case field.Kind() == reflect.Bool && u.tagTyp == "bool":
+					b, err := strconv.ParseBool(u.tagValue)
+					if err != nil {
+						return u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue))
+					}
+					field.SetBool(b)
+					return nil
+				case field.Kind() == reflect.Ptr && u.tagTyp == "group":
+					return u.group(field.Interface())
 				}
-				field.SetInt(int64(_i))
-				return nil
-			case field.Kind() == reflect.String && (u.tagTyp == "string" || u.tagTyp == "quantity" || u.tagTyp == "path"):
-				field.SetString(u.tagValue)
-				return nil
-			case field.Kind() == reflect.Float64 && u.tagTyp == "double":
-				f, err := strconv.ParseFloat(u.tagValue, 64)
-				if err != nil {
-					return u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue))
-				}
-				field.SetFloat(f)
-				return nil
-			case field.Kind() == reflect.Bool && u.tagTyp == "bool":
-				b, err := strconv.ParseBool(u.tagValue)
-				if err != nil {
-					return u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue))
-				}
-				field.SetBool(b)
-				return nil
-			case field.Kind() == reflect.Ptr && u.tagTyp == "group":
-				return u.group(field.Interface())
 			}
 		}
 	}
+	iv := u.indirect(v)
+	switch iv.Kind() {
+	case reflect.Int:
+		_i, err := strconv.Atoi(u.tagValue)
+		if err != nil {
+			return u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue))
+		}
+		iv.SetInt(int64(_i))
+		return nil
+	case reflect.String:
+		iv.SetString(u.tagValue)
+		return nil
+	case reflect.Float64:
+		f, err := strconv.ParseFloat(u.tagValue, 64)
+		if err != nil {
+			return u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue))
+		}
+		iv.SetFloat(f)
+		return nil
+	case reflect.Bool:
+		b, err := strconv.ParseBool(u.tagValue)
+		if err != nil {
+			return u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue))
+		}
+		iv.SetBool(b)
+		return nil
+	case reflect.Ptr:
+		return u.group(iv.Interface())
+	}
+
 	return nil
+}
+
+func (u *unmarshaler) Peek(n int) []byte {
+	b := u.Scanner.buf.Next(n)
+	for n != 0 {
+		u.Scanner.unread()
+		n--
+	}
+	return b
 }
 
 func (u *unmarshaler) group(v interface{}) *pureError {
@@ -161,6 +201,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 
 	for i := 0; i < iv.NumField(); i++ {
 		tag := tv.Elem().Field(i).Tag.Get(tagName)
+		f := iv.Field(i)
 
 		if tag == u.tagID {
 			for {
@@ -168,11 +209,15 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				if tok == EOF {
 					return nil
 				}
+
 				if lit == "\r" {
+					if b := u.Peek(2); b[0] == '\n' && (b[len(b)-1] == ' ' || b[len(b)-1] == '\t') {
+						continue
+					}
 					return nil
 				}
 
-				if lit == " " || lit == "" || lit == "\n" || lit == "\t" {
+				if lit == " " || lit == "\n" || lit == "\t" {
 					continue
 				}
 				if tok == DOT || lit == "." {
@@ -194,16 +239,59 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 					u.tagTyp = "double"
 				}
 
-				f := iv.Field(i)
 				err := u.field(f)
 				if err != nil {
-					return err
+					fmt.Println(err.Error())
 				}
-				return nil
 			}
 		}
 	}
 	return nil
+}
+
+func (u *unmarshaler) GetStruct(name string, v interface{}) reflect.Value {
+	iv := u.indirect(reflect.ValueOf(v))
+	for i := 0; i < iv.NumField(); i++ {
+		tag := reflect.TypeOf(v).Elem().Field(i).Tag.Get(tagName)
+		if tag == name {
+			return iv.Field(i)
+		}
+	}
+	return reflect.Zero(nil)
+}
+
+func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
+	if v.Kind() == reflect.Ptr {
+		iv := u.indirect(v.Elem())
+
+		for i := 0; i < iv.NumField(); i++ {
+			tag := iv.Type().Field(i).Tag.Get(tagName)
+
+			if tag == name {
+				return iv.Field(i)
+			}
+		}
+	}
+
+	if v.Kind() == reflect.Struct {
+		iv := u.indirect(v)
+		tv := reflect.TypeOf(v.Interface())
+		for i := 0; i < iv.NumField(); i++ {
+			tag := tv.Field(i).Tag.Get(tagName)
+			if tag == "" {
+				tag = iv.Type().Field(i).Tag.Get(tagName)
+			}
+			println(tag)
+			if tag == name || tag == u.tagID {
+				if iv.Kind() == reflect.Struct || iv.Kind() == reflect.Ptr {
+					return u.GetField(u.tagID, reflect.ValueOf(iv.Field(i)))
+				}
+				return iv.Field(i)
+			}
+		}
+	}
+
+	return v.Field(0)
 }
 
 func (u *unmarshaler) unmarshal(v interface{}) {
@@ -230,7 +318,34 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				case DOUBLE:
 					u.tagTyp = "double"
 				}
+			} else if tok == REF {
+				temp := lit
+				tok, lit = u.ScanSkipWhitespace()
+				group := lit
+				tok, lit = u.ScanSkipWhitespace()
+				tok, lit = u.ScanSkipWhitespace()
+				u.tagID = lit
+				struc := u.GetStruct(group, v)
+				u.tagID = temp
+				field := u.GetField(lit, struc)
+				println(field.IsValid())
+
+				switch field.Kind() {
+				case reflect.Int:
+					u.tagTyp = "int"
+					u.tagValue = strconv.Itoa(int(field.Int()))
+				case reflect.Float64:
+					u.tagTyp = "double"
+					u.tagValue = strconv.FormatFloat(field.Float(), 'f', 16, 64)
+				case reflect.String:
+					u.tagTyp = "string"
+					u.tagValue = field.String()
+				case reflect.Bool:
+					u.tagTyp = "bool"
+					u.tagValue = strconv.FormatBool(field.Bool())
+				}
 			}
+
 			err := u.field(pv)
 			if err != nil {
 				u.errors = append(u.errors, err)
@@ -250,8 +365,11 @@ func Unmarshal(b []byte, v interface{}) *pureError {
 		Scanner: newScanner(b),
 	}
 	u.unmarshal(v)
+
+	// Should improve error reporting
+	// Maybe as soon as they're discovered?
 	if len(u.errors) > 0 {
 		return u.errors[0]
 	}
-	return nil //u.unmarshal(v)
+	return nil
 }
