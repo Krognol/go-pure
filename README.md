@@ -53,7 +53,7 @@ func main() {
 - [x] Dot notation groups
 - [x] Newline-tab groups
 - [x] Regular properties
-- [ ] Referencing
+- [x] Referencing
 - [ ] Quantities
 - [ ] Paths
 - [ ] Environment variables
