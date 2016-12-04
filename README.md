@@ -12,6 +12,8 @@ agroup.double = 1.23
 agroup
     groupstring = "Hello, world!"
 
+refstring => agroup.groupstring
+
 ```
 
 ```go
@@ -27,6 +29,7 @@ import (
 type T struct {
 	Property int `pure:"intproperty"`
 	Group    *G  `pure:"agroup"`
+	RefString string `pure:"refstring"`
 }
 
 type G struct {
@@ -45,6 +48,7 @@ func main() {
 	println(t.Property)     // => 42
 	println(t.Group.String) // => "Hello, world!"
 	println(t.Group.Double) // => 1.23
+	println(t.RefString) // "Hello, world!"
 	os.Exit(0)
 }
 ```
