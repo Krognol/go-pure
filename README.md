@@ -14,7 +14,7 @@ agroup
 
 ```
 
-```golang
+```go
 package main
 
 import (
@@ -45,6 +45,7 @@ func main() {
     println(t.Double) // => 1.23
     os.Exit(0)
 }
+```
 
 # Progress
 - [x] Dot notation groups
