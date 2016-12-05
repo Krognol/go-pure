@@ -112,7 +112,7 @@ func main() {
 - [ ] Quantities
 - [ ] Paths
 - [ ] Environment variables
-- [ ] Group Nesting? (Haven't tested)
+- [x] Group Nesting? (Haven't tested)
 - [ ] Arrays
 - [ ] Schema support
 - [ ] Include files
