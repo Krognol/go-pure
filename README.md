@@ -118,6 +118,7 @@ func main() {
 - [ ] Schema support
 - [ ] Include files
 - [ ] Encoding to Pure format
+- [ ] Unquoted strings
 
 # Contributing
 1. Fork it ( https://github.com/Krognol/go-pure/fork )
