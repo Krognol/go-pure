@@ -68,6 +68,7 @@ package main
 
 import (
 	"github.com/Krognol/go-pure"
+	"os"
 	"io/ioutil"
 )
 
@@ -112,7 +113,7 @@ func main() {
 - [ ] Quantities
 - [ ] Paths
 - [ ] Environment variables
-- [x] Group Nesting? (Haven't tested)
+- [x] Group Nesting
 - [ ] Arrays
 - [ ] Schema support
 - [ ] Include files
