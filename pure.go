@@ -300,7 +300,7 @@ func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 		}
 	}
 
-	return v.Field(0)
+	return v
 }
 
 func (u *unmarshaler) unmarshal(v interface{}) {
