@@ -140,6 +140,7 @@ func (u *unmarshaler) Peek(n int) []byte {
 	return bytes.NewBuffer(u.Scanner.buf.Bytes()).Next(n)
 }
 
+// This is not pretty, but it works ¯\_(ツ)_/¯
 func (u *unmarshaler) PeekLiteral() string {
 	buf := bytes.NewBuffer(u.Scanner.buf.Bytes())
 	for {
@@ -175,7 +176,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 
 				if lit == "\r" {
-					if b := u.Peek(2); b[0] == '\n' && (b[len(b)-1] == ' ' || b[len(b)-1] == '\t') {
+					if b := u.Peek(2); b[0] == '\n' && (IsWhitespace(b[len(b)] - 1)) {
 						continue
 					}
 					return nil
@@ -207,7 +208,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 
 				switch u.tagTok {
-				case STRING, QUANTITY, PATH:
+				case STRING, QUANTITY, PATH, IDENTIFIER:
 					u.tagTyp = "string"
 				case INT:
 					u.tagTyp = "int"
@@ -286,17 +287,6 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 		case IDENTIFIER:
 			if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
 				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
-
-				switch u.tagTok {
-				case STRING, QUANTITY, PATH:
-					u.tagTyp = "string"
-				case INT:
-					u.tagTyp = "int"
-				case DOUBLE:
-					u.tagTyp = "double"
-				case BOOL:
-					u.tagTyp = "bool"
-				}
 			} else if tok == REF {
 				var field reflect.Value
 				temp := lit
