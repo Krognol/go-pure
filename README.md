@@ -54,6 +54,55 @@ func main() {
 	os.Exit(0)
 }
 ```
+## Nesting
+
+Pure file:
+```
+nested
+	anotherone
+		prop = "Hello, world!"
+```
+
+```go
+package main
+
+import (
+	"github.com/Krognol/go-pure"
+	"io/ioutil"
+)
+
+type AnotherOne struct {
+	String string `pure:"prop"`
+}
+
+type Nested struct {
+	AnotherNested *AnotherOne `pure:"anotherone"`
+}
+
+type Base struct {
+	Nested *Nested `pure:"nested"`
+}
+
+func main() {
+	base := &Base{
+		Nested: &Nested{
+			AnotherNested: &AnotherOne{},
+		},
+	}
+
+	b, _ := ioutil.ReadFile("nested-group-file.pure")
+
+	err := pure.Unmarshal(b, base)
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
+	}
+
+	println(base.Nested.AnotherNested.String) // => "Hello, world!"
+	os.Exit(0)
+}
+```
+
 
 # Progress
 - [x] Dot notation groups
