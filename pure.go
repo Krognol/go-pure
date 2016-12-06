@@ -150,6 +150,22 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			fi = NewQuantity(u.tagValue)
 			field.Set(u.indirect(reflect.ValueOf(fi)))
 			return nil
+		case *Env:
+			if u.tagTyp != "env" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
+				return nil
+			}
+			fi = NewEnv(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return nil
+		case Env:
+			if u.tagTyp != "env" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
+				return nil
+			}
+			fi = NewEnv(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
+			return nil
 		}
 
 	}
@@ -230,7 +246,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 
 				switch u.tagTok {
-				case STRING, QUANTITY, PATH, IDENTIFIER:
+				case STRING, PATH, IDENTIFIER:
 					u.tagTyp = "string"
 				case INT:
 					u.tagTyp = "int"
@@ -238,6 +254,10 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 					u.tagTyp = "double"
 				case BOOL:
 					u.tagTyp = "bool"
+				case QUANTITY:
+					u.tagTyp = "quantity"
+				case ENV:
+					u.tagTyp = "env"
 				}
 
 				err := u.field(f)
@@ -320,6 +340,8 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "bool"
 				case QUANTITY:
 					u.tagTyp = "quantity"
+				case ENV:
+					u.tagTyp = "env"
 				}
 			} else if tok == REF {
 				var field reflect.Value

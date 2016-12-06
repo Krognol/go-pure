@@ -62,7 +62,7 @@ func IsNumber(b byte) bool {
 }
 
 func IsAlpha(b byte) bool {
-	return b >= 'a' && b <= 'z'
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 func IsAlphaNum(b byte) bool {
@@ -168,7 +168,7 @@ func (s *scanner) ScanPath() (tok Token, lit string) {
 
 func (s *scanner) ScanEnv() (tok Token, lit string) {
 	var buf bytes.Buffer
-
+	buf.WriteByte(s.scan()) // consume the '$'
 	for {
 		c := s.scan()
 
@@ -176,9 +176,17 @@ func (s *scanner) ScanEnv() (tok Token, lit string) {
 			return EOF, "EOF"
 		}
 
-		if !IsAlphaNum(c) {
+		if !IsAlpha(c) {
+			if c == '{' {
+				buf.WriteByte(c)
+				continue
+			}
+			if c == '}' {
+				buf.WriteByte(c)
+				return ENV, buf.String()
+			}
 			s.unread()
-			return PATH, buf.String()
+			return ENV, buf.String()
 		}
 
 		buf.WriteByte(c)
@@ -241,6 +249,7 @@ func (s *scanner) Scan() (tok Token, lit string) {
 		s.unread()
 		return DOT, "."
 	case '$':
+		s.unread()
 		return s.ScanEnv()
 	case '%':
 		return s.ScanInclude()
