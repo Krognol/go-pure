@@ -104,7 +104,51 @@ func main() {
 }
 ```
 
+## Including files
 
+Pure file to be included:
+```
+someproperty = 123
+```
+
+Main pure file:
+```
+%include ./someincludefile.pure
+
+aProperty = "wasd"
+```
+
+Go program:
+
+```go
+package main
+
+import (
+	"os"
+	"io/ioutil"
+	"github.com/Krognol/pure"
+)
+
+type Include struct {
+	// Property to be included
+	SomeProperty int `pure:"someproperty"`
+
+	// Base file Property
+	AProperty string `pure:"aProperty"`
+}
+
+
+func main() {
+	it := &Include{}
+	b, _ := ioutil.ReadFile("./some-pure-file.pure")
+	err := pure.Unmarshal(b, it)
+	if err != nil {
+		panic(err)
+	}
+	println(it.SomeProperty) // => 123
+	println(it.AProperty)    // => "wasd"
+}
+```
 # Progress
 - [x] Dot notation groups
 - [x] Newline-tab groups
@@ -116,7 +160,7 @@ func main() {
 - [x] Group Nesting
 - [ ] Arrays
 - [ ] Schema support
-- [ ] Include files
+- [x] Include files
 - [ ] Encoding to Pure format
 - [ ] Unquoted strings
 
