@@ -234,6 +234,7 @@ func main() {
 - [x] Include files
 - [ ] Encoding to Pure format
 - [ ] Unquoted strings
+- [x] Character escaping
 
 # Contributing
 1. Fork it ( https://github.com/Krognol/go-pure/fork )
