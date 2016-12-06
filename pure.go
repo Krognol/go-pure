@@ -130,6 +130,19 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		return nil
 	case field.Kind() == reflect.Ptr && u.tagTyp == "group":
 		return u.group(field.Interface())
+	default:
+		fi := field.Interface()
+		fmt.Println(field.Kind().String())
+		switch fi.(type) {
+		case Quantity:
+			if u.tagTyp != "quantity" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
+				return nil
+			}
+			fi = NewQuantity(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return nil
+		}
 
 	}
 	return nil
@@ -293,10 +306,12 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "int"
 				case DOUBLE:
 					u.tagTyp = "double"
-				case PATH, QUANTITY, STRING, IDENTIFIER:
+				case PATH, STRING, IDENTIFIER:
 					u.tagTyp = "string"
 				case BOOL:
 					u.tagTyp = "bool"
+				case QUANTITY:
+					u.tagTyp = "quantity"
 				}
 			} else if tok == REF {
 				var field reflect.Value
