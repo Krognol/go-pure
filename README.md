@@ -181,6 +181,8 @@ func main() {
 	println(q.Quantity.Value()) // => 5
 	println(q.Quantity.Unit())  // => 'm^2'
 }
+```
+
 # Progress
 - [x] Dot notation groups
 - [x] Newline-tab groups
