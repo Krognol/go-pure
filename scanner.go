@@ -137,6 +137,11 @@ func (s *scanner) ScanString() (tok Token, lit string) {
 			return EOF, buf.String()
 		}
 
+		if c == '\\' {
+			buf.WriteByte(s.scan())
+			continue
+		}
+
 		buf.WriteByte(c)
 	}
 	s.scan()
