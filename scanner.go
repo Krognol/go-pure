@@ -170,7 +170,7 @@ func (s *scanner) ScanPath() (tok Token, lit string) {
 		}
 
 		if !IsAlphaNum(c) {
-			if c == '/' || c == '\\' || c == '.' || c == '-' || c == '_' || c == ' ' {
+			if c == '/' || c == '\\' || c == '.' || c == '-' || c == '_' || c == ' ' || c == ':' {
 				buf.WriteByte(c)
 				continue
 			}
@@ -257,7 +257,6 @@ func (s *scanner) Scan() (tok Token, lit string) {
 		return s.ScanString()
 	case '.':
 		if c = s.Peek(); c == '/' {
-			s.unread()
 			s.unread()
 			return s.ScanPath()
 		}
