@@ -195,7 +195,11 @@ func (s *scanner) ScanInclude() (tok Token, lit string) {
 		}
 
 		if !IsAlphaNum(c) {
-			s.unread()
+			if buf.String() == "include" {
+				_, lit := s.ScanPath()
+				buf.Reset()
+				buf.WriteString(lit)
+			}
 			return INCLUDE, buf.String()
 		}
 

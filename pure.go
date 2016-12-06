@@ -3,6 +3,7 @@ package pure
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"strconv"
 )
@@ -287,6 +288,16 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 		case IDENTIFIER:
 			if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
 				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+				switch u.tagTok {
+				case INT:
+					u.tagTyp = "int"
+				case DOUBLE:
+					u.tagTyp = "double"
+				case PATH, QUANTITY, STRING, IDENTIFIER:
+					u.tagTyp = "string"
+				case BOOL:
+					u.tagTyp = "bool"
+				}
 			} else if tok == REF {
 				var field reflect.Value
 				temp := lit
@@ -330,6 +341,12 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 			if err != nil {
 				u.errors = append(u.errors, err)
 			}
+		case INCLUDE:
+			b, err := ioutil.ReadFile(lit)
+			if err != nil {
+				fmt.Println(u.newError(err.Error()).Error())
+			}
+			Unmarshal(b, v)
 		}
 	}
 }
