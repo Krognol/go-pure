@@ -132,7 +132,6 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		return u.group(field.Interface())
 	default:
 		fi := field.Interface()
-		fmt.Println(field.Kind().String())
 		switch fi.(type) {
 		case Quantity:
 			if u.tagTyp != "quantity" {
