@@ -77,6 +77,7 @@ func (u *unmarshaler) ScanSkipWhitespace() (tok Token, lit string) {
 
 func (u *unmarshaler) field(v reflect.Value) *pureError {
 	var field reflect.Value
+
 	switch v.Kind() {
 	case reflect.Ptr:
 		iv := u.indirect(v.Elem())
