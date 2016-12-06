@@ -81,7 +81,7 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 		c := s.scan()
 
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if !IsAlphaNum(c) {
@@ -106,7 +106,7 @@ func (s *scanner) ScanNumber() (tok Token, lit string) {
 		c := s.scan()
 
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if !IsNumber(c) {
@@ -134,7 +134,7 @@ func (s *scanner) ScanString() (tok Token, lit string) {
 
 	for c := s.scan(); c != '"'; c = s.scan() {
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if c == '\\' {
@@ -167,7 +167,7 @@ func (s *scanner) ScanPath() (tok Token, lit string) {
 	for {
 		c = s.scan()
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if !IsAlphaNum(c) {
@@ -189,7 +189,7 @@ func (s *scanner) ScanEnv() (tok Token, lit string) {
 		c := s.scan()
 
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if !IsAlpha(c) {
@@ -216,7 +216,7 @@ func (s *scanner) ScanInclude() (tok Token, lit string) {
 		c := s.scan()
 
 		if c == eof {
-			return EOF, buf.String()
+			return tok, buf.String()
 		}
 
 		if !IsAlphaNum(c) {
