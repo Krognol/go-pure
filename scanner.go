@@ -138,6 +138,17 @@ func (s *scanner) ScanString() (tok Token, lit string) {
 		}
 
 		if c == '\\' {
+			if p := s.Peek(); p == '\n' || p == '\r' {
+				for {
+					c = s.scan()
+
+					if IsWhitespace(c) {
+						continue
+					}
+					s.unread()
+					break
+				}
+			}
 			buf.WriteByte(s.scan())
 			continue
 		}
