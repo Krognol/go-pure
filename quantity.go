@@ -8,8 +8,8 @@ type Quantity struct {
 	value string
 }
 
-func NewQuantity(val string) Quantity {
-	q := Quantity{val}
+func NewQuantity(val string) *Quantity {
+	q := &Quantity{val}
 	return q
 }
 

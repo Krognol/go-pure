@@ -115,7 +115,7 @@ func (s *scanner) ScanNumber() (tok Token, lit string) {
 				buf.WriteByte(c)
 				continue
 			}
-			if IsAlpha(c) {
+			if IsAlpha(c) || SpecialCharacter(c) && (c != '\r' && c != '\n') {
 				tok = QUANTITY
 				buf.WriteByte(c)
 				continue

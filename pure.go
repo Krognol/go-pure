@@ -133,13 +133,21 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 	default:
 		fi := field.Interface()
 		switch fi.(type) {
-		case Quantity:
+		case *Quantity:
 			if u.tagTyp != "quantity" {
 				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
 				return nil
 			}
 			fi = NewQuantity(u.tagValue)
 			field.Set(reflect.ValueOf(fi))
+			return nil
+		case Quantity:
+			if u.tagTyp != "quantity" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
+				return nil
+			}
+			fi = NewQuantity(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
 			return nil
 		}
 
