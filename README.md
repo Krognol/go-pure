@@ -210,7 +210,7 @@ type Env struct {
 
 func main() {
 	e := &Env{}
-	b, _ := ioutil.ReadFIle("envfile.pure")
+	b, _ := ioutil.ReadFile("envfile.pure")
 	err := pure.Unmarshal(b, e)
 	if err != nil {
 		penic(err)
@@ -221,6 +221,42 @@ func main() {
 
 ```
 
+## Paths
+
+Pure file:
+```
+dir = ./some/directory/
+file = ./some/directory/some/file.txt
+```
+
+Go program:
+```go
+package main
+
+import(
+	"io/ioutil"
+	"os"
+	"github.com/Krognol/go-pure"
+)
+
+type Dirs struct {
+	Dir *pure.Path `pure:"dir"`
+	File *pure.Path `pure:"file"`
+}
+
+func main() {
+	dir := &Dirs{}
+	b, _ := ioutil.ReadFile("./purefile.pure")
+	err := pure.Unmarshal(b, dir)
+	if err != nil {
+		panic(err)
+	}
+
+	println(dir.Dir.Base()) // => 'directory'
+	println(dir.File.FileExtension()) // => '.go'
+	os.Exit(0)
+}
+```
 
 # Progress
 - [x] Dot notation groups
@@ -228,7 +264,7 @@ func main() {
 - [x] Regular properties
 - [x] Referencing
 - [x] Quantities
-- [ ] Paths
+- [x] Paths
 - [x] Environment variables
 - [x] Group Nesting
 - [ ] Arrays
