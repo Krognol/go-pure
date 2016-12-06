@@ -19,6 +19,6 @@ func (q *Quantity) Unit() string {
 }
 
 func (q *Quantity) Value() string {
-	reg := regexp.MustCompile("[0-9.,:;'-_]+")
+	reg := regexp.MustCompile(`(\d+(\.\d+)?)`)
 	return reg.FindString(q.value)
 }
