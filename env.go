@@ -1,8 +1,6 @@
 package pure
 
-import (
-	"os"
-)
+import "os"
 
 type Env struct {
 	value string

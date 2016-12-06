@@ -166,6 +166,22 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			fi = NewEnv(u.tagValue)
 			field.Set(u.indirect(reflect.ValueOf(fi)))
 			return nil
+		case *Path:
+			if u.tagTyp != "path" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
+				return nil
+			}
+			fi = NewPath(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return nil
+		case Path:
+			if u.tagTyp != "path" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
+				return nil
+			}
+			fi = NewPath(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
+			return nil
 		}
 
 	}
@@ -246,7 +262,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 
 				switch u.tagTok {
-				case STRING, PATH, IDENTIFIER:
+				case STRING, IDENTIFIER:
 					u.tagTyp = "string"
 				case INT:
 					u.tagTyp = "int"
@@ -258,6 +274,8 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 					u.tagTyp = "quantity"
 				case ENV:
 					u.tagTyp = "env"
+				case PATH:
+					u.tagTyp = "path"
 				}
 
 				err := u.field(f)
@@ -334,7 +352,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "int"
 				case DOUBLE:
 					u.tagTyp = "double"
-				case PATH, STRING, IDENTIFIER:
+				case STRING, IDENTIFIER:
 					u.tagTyp = "string"
 				case BOOL:
 					u.tagTyp = "bool"
@@ -342,6 +360,8 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					u.tagTyp = "quantity"
 				case ENV:
 					u.tagTyp = "env"
+				case PATH:
+					u.tagTyp = "path"
 				}
 			} else if tok == REF {
 				var field reflect.Value
@@ -373,6 +393,29 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				case reflect.Bool:
 					u.tagTyp = "bool"
 					u.tagValue = strconv.FormatBool(field.Bool())
+				default:
+					fi := field.Interface()
+
+					switch fi.(type) {
+					case *Quantity:
+						u.tagTyp = "quantity"
+						u.tagValue = fi.(*Quantity).value
+					case Quantity:
+						u.tagTyp = "quantity"
+						u.tagValue = fi.(Quantity).value
+					case *Env:
+						u.tagTyp = "env"
+						u.tagValue = fi.(*Env).value
+					case Env:
+						u.tagTyp = "env"
+						u.tagValue = fi.(Env).value
+					case *Path:
+						u.tagTyp = "path"
+						u.tagValue = fi.(*Path).value
+					case Path:
+						u.tagTyp = "Path"
+						u.tagValue = fi.(Path).value
+					}
 				}
 			}
 
