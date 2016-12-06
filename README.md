@@ -253,7 +253,7 @@ func main() {
 	}
 
 	println(dir.Dir.Base()) // => 'directory'
-	println(dir.File.FileExtension()) // => '.go'
+	println(dir.File.FileExtension()) // => '.txt'
 	os.Exit(0)
 }
 ```
