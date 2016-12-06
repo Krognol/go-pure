@@ -149,12 +149,44 @@ func main() {
 	println(it.AProperty)    // => "wasd"
 }
 ```
+
+## Quantities
+
+Pure file:
+```
+quantity = 5m^2
+```
+
+Go program:
+```go
+package main
+
+import (
+	"os"
+	"io/ioutil"
+	"github.com/Krognol/go-pure"
+)
+
+type Q struct {
+	Quantity pure.Quantity `pure:"quantity"`
+}
+
+func main() {
+	q := &Q{}
+	b, _ := ioutil.ReadFile("./quantity.pure")
+	err := pure.Unmarshal(b, q)
+	if err != nil {
+		panic(err)
+	}
+	println(q.Quantity.Value()) // => 5
+	println(q.Quantity.Unit())  // => 'm^2'
+}
 # Progress
 - [x] Dot notation groups
 - [x] Newline-tab groups
 - [x] Regular properties
 - [x] Referencing
-- [ ] Quantities
+- [x] Quantities
 - [ ] Paths
 - [ ] Environment variables
 - [x] Group Nesting
