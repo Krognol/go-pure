@@ -105,7 +105,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 	if !field.IsValid() {
 		field = u.indirect(v)
 	}
-
+	// There has to be a better way for this
 	switch {
 	case field.Kind() == reflect.Int && u.tagTyp == "int":
 		_i, err := strconv.Atoi(u.tagValue)
@@ -114,7 +114,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		}
 		field.SetInt(int64(_i))
 		return nil
-	case field.Kind() == reflect.String && (u.tagTyp == "string" || u.tagTyp == "quantity" || u.tagTyp == "path"):
+	case field.Kind() == reflect.String && u.tagTyp == "string":
 		field.SetString(u.tagValue)
 		return nil
 	case field.Kind() == reflect.Float64 && u.tagTyp == "double":
@@ -349,8 +349,11 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 
 		switch tok {
 		case IDENTIFIER:
+			// Check if the next token is a an '='
 			if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
+				// Consume the '=' and get the token and value for the property
 				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+				// type check
 				switch u.tagTok {
 				case INT:
 					u.tagTyp = "int"
@@ -367,23 +370,37 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				case PATH:
 					u.tagTyp = "path"
 				}
+				// Else if it's a reference
 			} else if tok == REF {
 				var field reflect.Value
+				// Store the token id in temp
+				// and get the next token
 				temp := lit
 				tok, lit = u.ScanSkipWhitespace()
+
+				// If the peeked token is a '.' then we're going into a group
+				// so lit MUST be a group id (ex. 'someGroupId')
 				if b := u.Peek(1); b[0] == '.' {
 					group := lit
+					//Consime the '.'
 					tok, lit = u.ScanSkipWhitespace()
+					// Get the property id
 					tok, lit = u.ScanSkipWhitespace()
 					u.tagID = lit
+					// Get the struct with the correct tag id from 'v'
 					struc := u.GetStruct(group, v)
+					// reset the tag id from the temp value
 					u.tagID = temp
+					// get the field inside the struct we just got, with the tag id
 					field = u.GetField(lit, struc)
 				} else {
-					// Assume it's a regular property and not a group property
+					// If there's no '.'
+					// assume it's a regular property and not a group property
 					tok, lit = u.ScanSkipWhitespace()
 					field = u.GetField(u.tagID, u.indirect(reflect.ValueOf(v)))
 				}
+				// type check
+				// this can probably be made prettier
 				switch field.Kind() {
 				case reflect.Int:
 					u.tagTyp = "int"
@@ -423,6 +440,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				}
 			}
 
+			// assign the value to the field
 			err := u.field(pv)
 			if err != nil {
 				u.errors = append(u.errors, err)
@@ -434,6 +452,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				u.errors = append(u.errors, err)
 			}
 		case INCLUDE:
+			// if we're including a file all we do is unmarshal that BEFORE we do anything else
 			b, err := ioutil.ReadFile(lit)
 			if err != nil {
 				fmt.Println(u.newError(err.Error()).Error())
