@@ -115,7 +115,9 @@ Main pure file:
 ```
 %include ./someincludefile.pure
 
-aProperty = "wasd"
+aProperty = "some \
+			 weird text \
+			 here or something"
 ```
 
 Go program:
@@ -146,7 +148,7 @@ func main() {
 		panic(err)
 	}
 	println(it.SomeProperty) // => 123
-	println(it.AProperty)    // => "wasd"
+	println(it.AProperty)    // => "some weird text here or something"
 }
 ```
 
@@ -235,6 +237,7 @@ func main() {
 - [ ] Encoding to Pure format
 - [ ] Unquoted strings
 - [x] Character escaping
+- [x] Multiline values
 
 # Contributing
 1. Fork it ( https://github.com/Krognol/go-pure/fork )
