@@ -85,6 +85,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			tag := iv.Type().Field(i).Tag.Get(tagName)
 			if tag != "" && tag != "-" && tag == u.tagID {
 				field = iv.Field(i)
+				break
 			}
 		}
 	case reflect.Struct:
@@ -95,6 +96,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			tag := tv.Field(i).Tag.Get(tagName)
 			if tag != "" && tag != "-" && tag == u.tagID {
 				field = iv.Field(i)
+				break
 			}
 
 		}
@@ -332,6 +334,8 @@ func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 	return v
 }
 
+// Gotta pretty this up it's really ugly
+// Makes me wanna vomit
 func (u *unmarshaler) unmarshal(v interface{}) {
 	pv := u.indirect(reflect.ValueOf(v))
 	for {
