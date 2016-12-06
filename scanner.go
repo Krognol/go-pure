@@ -76,7 +76,7 @@ func SpecialCharacter(b byte) bool {
 func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 	var buf bytes.Buffer
 	buf.WriteByte(s.scan())
-
+	tok = IDENTIFIER
 	for {
 		c := s.scan()
 
@@ -89,7 +89,6 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 				s.unread()
 				return GROUP, buf.String()
 			}
-
 			s.unread()
 			return IDENTIFIER, buf.String()
 		}
