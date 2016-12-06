@@ -2,6 +2,7 @@ package pure
 
 import (
 	"bytes"
+	"regexp"
 )
 
 const eof = byte(0)
@@ -68,6 +69,10 @@ func IsAlphaNum(b byte) bool {
 	return IsNumber(b) || IsAlpha(b)
 }
 
+func SpecialCharacter(b byte) bool {
+	return regexp.MustCompile("[<|>,;.:-_'*¨^~!§½\"@#£¤$%€&/{(\\[\\])}=+?´`]?").MatchString(string(b))
+}
+
 func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 	var buf bytes.Buffer
 	buf.WriteByte(s.scan())
@@ -79,16 +84,12 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 			return EOF, "EOF"
 		}
 
-		if !IsAlpha(c) {
+		if !IsAlphaNum(c) {
 			if c == '.' || (IsWhitespace(c) && IsWhitespace(s.Peek())) {
 				s.unread()
 				return GROUP, buf.String()
 			}
 
-			if c == '-' || c == '_' {
-				buf.WriteByte(c)
-				continue
-			}
 			s.unread()
 			return IDENTIFIER, buf.String()
 		}
@@ -154,7 +155,7 @@ func (s *scanner) ScanPath() (tok Token, lit string) {
 		}
 
 		if !IsAlphaNum(c) {
-			if c == '/' || c == '\\' || c == '.' {
+			if c == '/' || c == '\\' || c == '.' || c == '-' || c == '_' || c == ' ' {
 				buf.WriteByte(c)
 				continue
 			}
