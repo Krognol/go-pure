@@ -168,7 +168,7 @@ import (
 )
 
 type Q struct {
-	Quantity pure.Quantity `pure:"quantity"`
+	Quantity *pure.Quantity `pure:"quantity"`
 }
 
 func main() {
