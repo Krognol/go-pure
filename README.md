@@ -183,6 +183,43 @@ func main() {
 }
 ```
 
+## Environment variables
+
+Pure file:
+
+```
+env = ${GOPATH}
+```
+
+Go program:
+
+```go
+package main
+
+import (
+	"os"
+	"io/ioutil"
+	"github.com/Krognol/go-pure"
+)
+
+type Env struct {
+	E *pure.Env `pure:"env"`
+}
+
+func main() {
+	e := &Env{}
+	b, _ := ioutil.ReadFIle("envfile.pure")
+	err := pure.Unmarshal(b, e)
+	if err != nil {
+		penic(err)
+	}
+	println(e.E.Expand()) // => X:\your\go\path
+	os.Exit(0)
+}
+
+```
+
+
 # Progress
 - [x] Dot notation groups
 - [x] Newline-tab groups
@@ -190,7 +227,7 @@ func main() {
 - [x] Referencing
 - [x] Quantities
 - [ ] Paths
-- [ ] Environment variables
+- [x] Environment variables
 - [x] Group Nesting
 - [ ] Arrays
 - [ ] Schema support
