@@ -58,7 +58,7 @@ func (u *unmarshaler) indirect(v reflect.Value) reflect.Value {
 }
 
 func (u *unmarshaler) newError(msg string) *pureError {
-	s := fmt.Sprintf("Error unmarhsaling Pure property: %s\r\n[%d:%d]-%s", msg, u.Scanner.line, u.Scanner.col, u.Scanner.buf.String())
+	s := fmt.Sprintf("Error unmarhsaling Pure property: %s\r\n[%d:%d]-%s", msg, u.Scanner.line, u.Scanner.col, string(u.Scanner.buf.Bytes()))
 	err := &pureError{}
 	err.error = fmt.Errorf(s)
 	return err
