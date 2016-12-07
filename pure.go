@@ -21,6 +21,157 @@ type unmarshaler struct {
 	tagTyp   string
 }
 
+func (u *unmarshaler) typeCheck(field reflect.Value) {
+	switch {
+	case field.Kind() == reflect.Int && u.tagTyp == "int":
+		_i, err := strconv.Atoi(u.tagValue)
+		if err != nil {
+			fmt.Println(u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue)).Error())
+			return
+		}
+		field.SetInt(int64(_i))
+		return
+	case field.Kind() == reflect.String && u.tagTyp == "string":
+		field.SetString(u.tagValue)
+		return
+	case field.Kind() == reflect.Float64 && u.tagTyp == "double":
+		f, err := strconv.ParseFloat(u.tagValue, 64)
+		if err != nil {
+			fmt.Println(u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue)).Error())
+			return
+		}
+		field.SetFloat(f)
+		return
+	case field.Kind() == reflect.Bool && u.tagTyp == "bool":
+		b, err := strconv.ParseBool(u.tagValue)
+		if err != nil {
+			fmt.Println(u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue)).Error())
+			return
+		}
+		field.SetBool(b)
+		return
+	case field.Kind() == reflect.Ptr && u.tagTyp == "group":
+		err := u.group(field.Interface())
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		return
+	default:
+		fi := field.Interface()
+		switch fi.(type) {
+		case *Quantity:
+			if u.tagTyp != "quantity" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
+				return
+			}
+			fi = NewQuantity(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return
+		case Quantity:
+			if u.tagTyp != "quantity" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
+				return
+			}
+			fi = NewQuantity(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
+			return
+		case *Env:
+			if u.tagTyp != "env" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
+				return
+			}
+			fi = NewEnv(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return
+		case Env:
+			if u.tagTyp != "env" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
+				return
+			}
+			fi = NewEnv(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
+			return
+		case *Path:
+			if u.tagTyp != "path" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
+				return
+			}
+			fi = NewPath(u.tagValue)
+			field.Set(reflect.ValueOf(fi))
+			return
+		case Path:
+			if u.tagTyp != "path" {
+				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
+				return
+			}
+			fi = NewPath(u.tagValue)
+			field.Set(u.indirect(reflect.ValueOf(fi)))
+			return
+		}
+
+	}
+}
+
+func (u *unmarshaler) typeCheckRef(field reflect.Value) {
+	switch field.Kind() {
+	case reflect.Int:
+		u.tagTyp = "int"
+		u.tagValue = strconv.Itoa(int(field.Int()))
+	case reflect.Float64:
+		u.tagTyp = "double"
+		u.tagValue = strconv.FormatFloat(field.Float(), 'f', 16, 64)
+	case reflect.String:
+		u.tagTyp = "string"
+		u.tagValue = field.String()
+	case reflect.Bool:
+		u.tagTyp = "bool"
+		u.tagValue = strconv.FormatBool(field.Bool())
+	default:
+		fi := field.Interface()
+
+		switch fi.(type) {
+		case *Quantity:
+			u.tagTyp = "quantity"
+			u.tagValue = fi.(*Quantity).value
+		case Quantity:
+			u.tagTyp = "quantity"
+			u.tagValue = fi.(Quantity).value
+		case *Env:
+			u.tagTyp = "env"
+			u.tagValue = fi.(*Env).value
+		case Env:
+			u.tagTyp = "env"
+			u.tagValue = fi.(Env).value
+		case *Path:
+			u.tagTyp = "path"
+			u.tagValue = fi.(*Path).value
+		case Path:
+			u.tagTyp = "Path"
+			u.tagValue = fi.(Path).value
+		}
+	}
+}
+
+func (u *unmarshaler) setTyp() {
+	switch u.tagTok {
+	case STRING, IDENTIFIER:
+		u.tagTyp = "string"
+	case INT:
+		u.tagTyp = "int"
+	case DOUBLE:
+		u.tagTyp = "double"
+	case BOOL:
+		u.tagTyp = "bool"
+	case QUANTITY:
+		u.tagTyp = "quantity"
+	case ENV:
+		u.tagTyp = "env"
+	case PATH:
+		u.tagTyp = "path"
+	}
+}
+
 // Shamelessly stolen from the Golang JSON decode source. Forgive
 func (u *unmarshaler) indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
@@ -106,87 +257,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 		field = u.indirect(v)
 	}
 	// There has to be a better way for this
-	switch {
-	case field.Kind() == reflect.Int && u.tagTyp == "int":
-		_i, err := strconv.Atoi(u.tagValue)
-		if err != nil {
-			return u.newError(fmt.Sprintf("bad number value '%s'", u.tagValue))
-		}
-		field.SetInt(int64(_i))
-		return nil
-	case field.Kind() == reflect.String && u.tagTyp == "string":
-		field.SetString(u.tagValue)
-		return nil
-	case field.Kind() == reflect.Float64 && u.tagTyp == "double":
-		f, err := strconv.ParseFloat(u.tagValue, 64)
-		if err != nil {
-			return u.newError(fmt.Sprintf("bad floating point value '%s'", u.tagValue))
-		}
-		field.SetFloat(f)
-		return nil
-	case field.Kind() == reflect.Bool && u.tagTyp == "bool":
-		b, err := strconv.ParseBool(u.tagValue)
-		if err != nil {
-			return u.newError(fmt.Sprintf("bad bool value '%s'", u.tagValue))
-		}
-		field.SetBool(b)
-		return nil
-	case field.Kind() == reflect.Ptr && u.tagTyp == "group":
-		return u.group(field.Interface())
-	default:
-		fi := field.Interface()
-		switch fi.(type) {
-		case *Quantity:
-			if u.tagTyp != "quantity" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
-				return nil
-			}
-			fi = NewQuantity(u.tagValue)
-			field.Set(reflect.ValueOf(fi))
-			return nil
-		case Quantity:
-			if u.tagTyp != "quantity" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Quantity' & '%s", u.tagTyp)))
-				return nil
-			}
-			fi = NewQuantity(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
-			return nil
-		case *Env:
-			if u.tagTyp != "env" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
-				return nil
-			}
-			fi = NewEnv(u.tagValue)
-			field.Set(reflect.ValueOf(fi))
-			return nil
-		case Env:
-			if u.tagTyp != "env" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Env' & '%s'", u.tagTyp)))
-				return nil
-			}
-			fi = NewEnv(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
-			return nil
-		case *Path:
-			if u.tagTyp != "path" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
-				return nil
-			}
-			fi = NewPath(u.tagValue)
-			field.Set(reflect.ValueOf(fi))
-			return nil
-		case Path:
-			if u.tagTyp != "path" {
-				fmt.Println(u.newError(fmt.Sprintf("mismatched types 'Path' & '%s'", u.tagTyp)))
-				return nil
-			}
-			fi = NewPath(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
-			return nil
-		}
-
-	}
+	u.typeCheck(field)
 	return nil
 }
 
@@ -263,22 +334,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
 				}
 
-				switch u.tagTok {
-				case STRING, IDENTIFIER:
-					u.tagTyp = "string"
-				case INT:
-					u.tagTyp = "int"
-				case DOUBLE:
-					u.tagTyp = "double"
-				case BOOL:
-					u.tagTyp = "bool"
-				case QUANTITY:
-					u.tagTyp = "quantity"
-				case ENV:
-					u.tagTyp = "env"
-				case PATH:
-					u.tagTyp = "path"
-				}
+				u.setTyp()
 
 				err := u.field(f)
 				if err != nil {
@@ -354,22 +410,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				// Consume the '=' and get the token and value for the property
 				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
 				// type check
-				switch u.tagTok {
-				case INT:
-					u.tagTyp = "int"
-				case DOUBLE:
-					u.tagTyp = "double"
-				case STRING, IDENTIFIER:
-					u.tagTyp = "string"
-				case BOOL:
-					u.tagTyp = "bool"
-				case QUANTITY:
-					u.tagTyp = "quantity"
-				case ENV:
-					u.tagTyp = "env"
-				case PATH:
-					u.tagTyp = "path"
-				}
+				u.setTyp()
 				// Else if it's a reference
 			} else if tok == REF {
 				var field reflect.Value
@@ -401,43 +442,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				}
 				// type check
 				// this can probably be made prettier
-				switch field.Kind() {
-				case reflect.Int:
-					u.tagTyp = "int"
-					u.tagValue = strconv.Itoa(int(field.Int()))
-				case reflect.Float64:
-					u.tagTyp = "double"
-					u.tagValue = strconv.FormatFloat(field.Float(), 'f', 16, 64)
-				case reflect.String:
-					u.tagTyp = "string"
-					u.tagValue = field.String()
-				case reflect.Bool:
-					u.tagTyp = "bool"
-					u.tagValue = strconv.FormatBool(field.Bool())
-				default:
-					fi := field.Interface()
-
-					switch fi.(type) {
-					case *Quantity:
-						u.tagTyp = "quantity"
-						u.tagValue = fi.(*Quantity).value
-					case Quantity:
-						u.tagTyp = "quantity"
-						u.tagValue = fi.(Quantity).value
-					case *Env:
-						u.tagTyp = "env"
-						u.tagValue = fi.(*Env).value
-					case Env:
-						u.tagTyp = "env"
-						u.tagValue = fi.(Env).value
-					case *Path:
-						u.tagTyp = "path"
-						u.tagValue = fi.(*Path).value
-					case Path:
-						u.tagTyp = "Path"
-						u.tagValue = fi.(Path).value
-					}
-				}
+				u.typeCheckRef(field)
 			}
 
 			// assign the value to the field
