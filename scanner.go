@@ -89,6 +89,10 @@ func (s *scanner) ScanIdentifier() (tok Token, lit string) {
 				s.unread()
 				return GROUP, buf.String()
 			}
+
+			if buf.String() == "true" || buf.String() == "false" {
+				return BOOL, buf.String()
+			}
 			s.unread()
 			return IDENTIFIER, buf.String()
 		}
@@ -269,6 +273,8 @@ func (s *scanner) Scan() (tok Token, lit string) {
 		return s.ScanInclude()
 	case '[':
 		return ARRAY, "["
+	case ']':
+		return RBRACK, "]"
 	case '=':
 		if s.Peek() == '>' {
 			s.scan()

@@ -19,8 +19,10 @@ const (
 	IDENTIFIER
 	EQUALS // =
 	COLON  // :
-	LPAREN
-	RPAREN
-	REF // =>
-	DOT // .
+	LPAREN // (
+	RPAREN // )
+	LBRACK // [
+	RBRACK // ]
+	REF    // =>
+	DOT    // .
 )

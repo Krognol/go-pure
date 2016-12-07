@@ -390,6 +390,73 @@ func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 	return v
 }
 
+func (u *unmarshaler) array(v reflect.Value) *pureError {
+	var field reflect.Value
+	iv := u.indirect(v)
+
+	for i := 0; i < iv.NumField(); i++ {
+		tag := iv.Type().Field(i).Tag.Get(tagName)
+		if tag == u.tagID {
+			field = iv.Field(i)
+		}
+	}
+
+	for {
+		tok, lit := u.ScanSkipWhitespace()
+
+		if tok == EOF || tok == RBRACK {
+			return nil
+		}
+
+		if lit == " " || lit == "\n" || lit == "\t" || lit == "\r" {
+			continue
+		}
+
+		if lit == "[" {
+			u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+			u.setTyp()
+		} else {
+			u.tagValue = lit
+			u.setTyp()
+		}
+
+		var f reflect.Value
+		switch field.Kind() {
+		case reflect.Slice, reflect.Array:
+			switch u.tagTyp {
+			case "string":
+				f = reflect.Append(field, reflect.ValueOf(u.tagValue))
+			case "int":
+				_i, err := strconv.Atoi(u.tagValue)
+				if err != nil {
+					return u.newError(err.Error())
+				}
+				f = reflect.Append(field, reflect.ValueOf(_i))
+			case "double":
+				d, err := strconv.ParseFloat(u.tagValue, 64)
+				if err != nil {
+					return u.newError(err.Error())
+				}
+				f = reflect.Append(field, reflect.ValueOf(d))
+			case "bool":
+				b, err := strconv.ParseBool(u.tagValue)
+				if err != nil {
+					return u.newError(u.tagValue)
+				}
+				f = reflect.Append(field, reflect.ValueOf(b))
+			case "path":
+				p := NewPath(u.tagValue)
+				f = reflect.Append(field, reflect.ValueOf(&p))
+			case "quantity":
+				q := NewQuantity(u.tagValue)
+				f = reflect.Append(field, reflect.ValueOf(&q))
+			}
+
+			field.Set(f)
+		}
+	}
+}
+
 // Gotta pretty this up it's really ugly
 // Makes me wanna vomit
 func (u *unmarshaler) unmarshal(v interface{}) {
@@ -405,15 +472,27 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 
 		switch tok {
 		case IDENTIFIER:
+
 			// Check if the next token is a an '='
 			if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
+
+				if b := u.Peek(2); b[1] == '[' || b[0] == '[' {
+					err := u.array(pv)
+					if err != nil {
+						u.errors = append(u.errors, err)
+					}
+					continue
+				}
 				// Consume the '=' and get the token and value for the property
 				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+
 				// type check
 				u.setTyp()
+
 				// Else if it's a reference
 			} else if tok == REF {
 				var field reflect.Value
+
 				// Store the token id in temp
 				// and get the next token
 				temp := lit
@@ -423,23 +502,35 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				// so lit MUST be a group id (ex. 'someGroupId')
 				if b := u.Peek(1); b[0] == '.' {
 					group := lit
+
 					//Consime the '.'
 					tok, lit = u.ScanSkipWhitespace()
+
 					// Get the property id
 					tok, lit = u.ScanSkipWhitespace()
 					u.tagID = lit
+
 					// Get the struct with the correct tag id from 'v'
 					struc := u.GetStruct(group, v)
+
 					// reset the tag id from the temp value
 					u.tagID = temp
+
 					// get the field inside the struct we just got, with the tag id
 					field = u.GetField(lit, struc)
+				} else if tok == ARRAY {
+					err := u.array(field)
+					if err != nil {
+						u.errors = append(u.errors, err)
+					}
 				} else {
+
 					// If there's no '.'
 					// assume it's a regular property and not a group property
 					tok, lit = u.ScanSkipWhitespace()
 					field = u.GetField(u.tagID, u.indirect(reflect.ValueOf(v)))
 				}
+
 				// type check
 				// this can probably be made prettier
 				u.typeCheckRef(field)
@@ -457,6 +548,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 				u.errors = append(u.errors, err)
 			}
 		case INCLUDE:
+
 			// if we're including a file all we do is unmarshal that BEFORE we do anything else
 			b, err := ioutil.ReadFile(lit)
 			if err != nil {
