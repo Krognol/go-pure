@@ -258,6 +258,51 @@ func main() {
 }
 ```
 
+## Arrays
+
+For now arrays only work for basic types (string, int, path...), and not for Groups.
+
+Pure file:
+```
+array = [
+	"Hello"
+	"World!"
+]
+```
+
+Go program:
+
+```go
+package main
+
+import(
+	"os"
+	"io/ioutil"
+	"github.com/Krognol/go-pure"
+)
+
+type Array struct {
+	Arr []string `pure:"array"`
+}
+
+func main() {
+	arr := &Array{}
+	b, _ := ioutil.ReadFile("array-pure-file.pure")
+
+	err := pure.Unmarshal(b, arr)
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
+	}
+
+	println(arr.Arr[0]) // => "Hello"
+	println(arr.Arr[1]) // => "World!"
+	os.Exit(0)
+}
+
+```
+
+
 # Progress
 - [x] Dot notation groups
 - [x] Newline-tab groups
