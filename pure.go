@@ -446,8 +446,41 @@ func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 		key := u.tagID
 		if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
 			u.tagTok, u.tagValue = u.ScanSkipWhitespace()
-			field = reflect.MakeMap(field.Type())
-			field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(u.tagValue))
+			u.setTyp()
+			switch u.tagTyp {
+			case "int":
+				ii, err := strconv.Atoi(u.tagValue)
+				if err != nil {
+					fmt.Println(err.Error())
+					return nil
+				}
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(ii))
+			case "double":
+				d, err := strconv.ParseFloat(u.tagValue, 64)
+				if err != nil {
+					fmt.Println(err.Error())
+					return nil
+				}
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(d))
+			case "string":
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(u.tagValue))
+			case "bool":
+				b, err := strconv.ParseBool(u.tagValue)
+				if err != nil {
+					fmt.Println(err.Error())
+					return nil
+				}
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(b))
+			case "path":
+				p := NewPath(u.tagValue)
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(&p))
+			case "quantity":
+				q := NewQuantity(u.tagValue)
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(&q))
+			case "env":
+				e := NewEnv(u.tagValue)
+				field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(&e))
+			}
 			v.Field(_i).Set(field)
 		}
 	}
@@ -475,12 +508,15 @@ func (u *unmarshaler) array(v reflect.Value) *pureError {
 		}
 
 		if lit == "[" {
-			tok, lit = u.ScanSkipWhitespace()
-			if tok == GROUP || tok == IDENTIFIER {
-				u.tagTok = tok
-				u.tagID = lit
-				u.mäp(temp, v)
-				continue
+			for {
+				tok, lit = u.ScanSkipWhitespace()
+				if tok == GROUP || tok == IDENTIFIER {
+					u.tagTok = tok
+					u.tagID = lit
+					u.mäp(temp, v)
+					continue
+				}
+				break
 			}
 			u.tagTok, u.tagValue = tok, lit
 			u.setTyp()
