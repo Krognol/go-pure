@@ -354,7 +354,7 @@ func (u *unmarshaler) GetStruct(name string, v interface{}) reflect.Value {
 			return iv.Field(i)
 		}
 	}
-	return reflect.Zero(nil)
+	return reflect.ValueOf(v)
 }
 
 func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
@@ -390,14 +390,80 @@ func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 	return v
 }
 
+func (u *unmarshaler) appendArray(field reflect.Value) reflect.Value {
+	switch u.tagTyp {
+	case "string":
+		return reflect.Append(field, reflect.ValueOf(u.tagValue))
+	case "int":
+		_i, err := strconv.Atoi(u.tagValue)
+		if err != nil {
+			fmt.Printf("invalid integer value '%s'", u.tagValue)
+			return reflect.Zero(nil)
+		}
+		return reflect.Append(field, reflect.ValueOf(_i))
+	case "double":
+		d, err := strconv.ParseFloat(u.tagValue, 64)
+		if err != nil {
+			fmt.Printf("invalid floating point value '%s'", u.tagValue)
+			return reflect.Zero(nil)
+		}
+		return reflect.Append(field, reflect.ValueOf(d))
+	case "bool":
+		b, err := strconv.ParseBool(u.tagValue)
+		if err != nil {
+			fmt.Printf("invalid boolean value '%s'", u.tagValue)
+			return reflect.Zero(nil)
+		}
+		return reflect.Append(field, reflect.ValueOf(b))
+	case "path":
+		p := NewPath(u.tagValue)
+		return reflect.Append(field, reflect.ValueOf(&p))
+	case "quantity":
+		q := NewQuantity(u.tagValue)
+		return reflect.Append(field, reflect.ValueOf(&q))
+	case "env":
+		e := NewEnv(u.tagValue)
+		return reflect.Append(field, reflect.ValueOf(&e))
+	}
+	return reflect.Zero(reflect.TypeOf(nil))
+}
+
+func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
+	var field reflect.Value
+	//iv := u.indirect(v)
+	var _i int
+	for i := 0; i < v.NumField(); i++ {
+		tag := v.Type().Field(i).Tag.Get(tagName)
+		if tag == name {
+			field = v.Field(i)
+			_i = i
+			break
+		}
+		field = v
+	}
+
+	if u.tagTok == IDENTIFIER {
+		key := u.tagID
+		if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
+			u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+			field = reflect.MakeMap(field.Type())
+			field.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(u.tagValue))
+			v.Field(_i).Set(field)
+		}
+	}
+	return nil
+}
+
 func (u *unmarshaler) array(v reflect.Value) *pureError {
 	var field reflect.Value
 	iv := u.indirect(v)
+	temp := u.tagID
 
 	for i := 0; i < iv.NumField(); i++ {
 		tag := iv.Type().Field(i).Tag.Get(tagName)
 		if tag == u.tagID {
 			field = iv.Field(i)
+			break
 		}
 	}
 
@@ -408,51 +474,24 @@ func (u *unmarshaler) array(v reflect.Value) *pureError {
 			return nil
 		}
 
-		if lit == " " || lit == "\n" || lit == "\t" || lit == "\r" {
-			continue
-		}
-
 		if lit == "[" {
-			u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+			tok, lit = u.ScanSkipWhitespace()
+			if tok == GROUP || tok == IDENTIFIER {
+				u.tagTok = tok
+				u.tagID = lit
+				u.mäp(temp, v)
+				continue
+			}
+			u.tagTok, u.tagValue = tok, lit
 			u.setTyp()
 		} else {
 			u.tagValue = lit
 			u.setTyp()
 		}
 
-		var f reflect.Value
 		switch field.Kind() {
 		case reflect.Slice, reflect.Array:
-			switch u.tagTyp {
-			case "string":
-				f = reflect.Append(field, reflect.ValueOf(u.tagValue))
-			case "int":
-				_i, err := strconv.Atoi(u.tagValue)
-				if err != nil {
-					return u.newError(err.Error())
-				}
-				f = reflect.Append(field, reflect.ValueOf(_i))
-			case "double":
-				d, err := strconv.ParseFloat(u.tagValue, 64)
-				if err != nil {
-					return u.newError(err.Error())
-				}
-				f = reflect.Append(field, reflect.ValueOf(d))
-			case "bool":
-				b, err := strconv.ParseBool(u.tagValue)
-				if err != nil {
-					return u.newError(u.tagValue)
-				}
-				f = reflect.Append(field, reflect.ValueOf(b))
-			case "path":
-				p := NewPath(u.tagValue)
-				f = reflect.Append(field, reflect.ValueOf(&p))
-			case "quantity":
-				q := NewQuantity(u.tagValue)
-				f = reflect.Append(field, reflect.ValueOf(&q))
-			}
-
-			field.Set(f)
+			field.Set(u.appendArray(field))
 		}
 	}
 }
@@ -504,13 +543,13 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					group := lit
 
 					//Consime the '.'
-					tok, lit = u.ScanSkipWhitespace()
+					u.ScanSkipWhitespace()
 
 					// Get the property id
 					tok, lit = u.ScanSkipWhitespace()
 					u.tagID = lit
 
-					// Get the struct with the correct tag id from 'v'
+					// Get the struct with the correct tag id from the interface
 					struc := u.GetStruct(group, v)
 
 					// reset the tag id from the temp value
