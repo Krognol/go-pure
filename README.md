@@ -2,6 +2,10 @@
 
 The Pure specifications can be found [here](https://github.com/pureconfig/pureconfig).
 
+# Setup
+
+`go get -u github.com/Krognol/go-pure`
+
 # Usage
 Pure file:
 ```
