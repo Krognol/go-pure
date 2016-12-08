@@ -235,6 +235,16 @@ func (s *scanner) ScanInclude() (tok Token, lit string) {
 	}
 }
 
+func (s *scanner) ConsumeComment() {
+	for {
+		c := s.scan()
+
+		if c == '\r' || c == '\n' {
+			break
+		}
+	}
+}
+
 func (s *scanner) Scan() (tok Token, lit string) {
 	var buf bytes.Buffer
 	c := s.scan()
@@ -285,6 +295,9 @@ func (s *scanner) Scan() (tok Token, lit string) {
 		return COLON, ":"
 	case '/':
 		return s.ScanPath()
+	case '#':
+		s.ConsumeComment()
+		return s.Scan()
 	}
 	return Illegal, buf.String()
 }
