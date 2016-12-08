@@ -272,6 +272,11 @@ array = [
 	"Hello"
 	"World!"
 ]
+
+map = [
+	int = 123
+	anotherint = 321
+]
 ```
 
 Go program:
@@ -287,10 +292,11 @@ import(
 
 type Array struct {
 	Arr []string `pure:"array"`
+	Map map[string]int `pure:"array"`
 }
 
 func main() {
-	arr := &Array{}
+	arr := &Array{Map: make(map[string]int)} // Very important to initialize the map before unmarshaling
 	b, _ := ioutil.ReadFile("array-pure-file.pure")
 
 	err := pure.Unmarshal(b, arr)
@@ -299,8 +305,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	println(arr.Arr[0]) // => "Hello"
-	println(arr.Arr[1]) // => "World!"
+	println(arr.Arr[0])        // => "Hello"
+	println(arr.Arr[1])        // => "World!"
+	println(arr.Map["int"])    // => 123
+	println(arr.Map["anotherint"]) // => 321
 	os.Exit(0)
 }
 
