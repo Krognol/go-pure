@@ -1,0 +1,396 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Go-pure by Krognol</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Go-pure</h1>
+        <p>Pure (https://github.com/pureconfig/pureconfig) library for Golang</p>
+
+        <p class="view"><a href="https://github.com/Krognol/go-pure">View the Project on GitHub <small>Krognol/go-pure</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/Krognol/go-pure/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/Krognol/go-pure/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/Krognol/go-pure">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="go-pure" class="anchor" href="#go-pure" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>go-pure</h1>
+
+<p>The Pure specifications can be found <a href="https://github.com/pureconfig/pureconfig">here</a>.</p>
+
+<h1>
+<a id="setup" class="anchor" href="#setup" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setup</h1>
+
+<p><code>go get -u github.com/Krognol/go-pure</code></p>
+
+<h1>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h1>
+
+<h2>
+<a id="properties--property-references" class="anchor" href="#properties--property-references" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Properties &amp; property references</h2>
+
+<p>Pure file:</p>
+
+<pre><code># This is a comment
+
+# This is a property
+intproperty = 43
+
+# This is a group property
+# A group is specified with either
+# dot.notation as seen below...
+agroup.double = 1.23
+
+# ...or a newline + tab format
+agroup
+    groupstring = "Hello, world!"
+
+# You can reference other variables with the '=&gt;' operator
+refstring =&gt; agroup.groupstring
+refint =&gt; intproperty
+</code></pre>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">T</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Property</span> <span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"intproperty"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Group</span>    *G  <span class="pl-s"><span class="pl-pds">`</span>pure:"agroup"<span class="pl-pds">`</span></span>
+    <span class="pl-v">RefString</span> <span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"refstring"<span class="pl-pds">`</span></span>
+    <span class="pl-v">PropRef</span> <span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"refint"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">G</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">String</span> <span class="pl-k">string</span>  <span class="pl-s"><span class="pl-pds">`</span>pure:"groupstring"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Double</span> <span class="pl-k">float64</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"double"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">t</span> <span class="pl-k">:=</span> &amp;T{<span class="pl-c1">0</span>, &amp;G{}}
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>some-pure-file.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, t)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">println</span>(err.<span class="pl-c1">Error</span>())
+        os.<span class="pl-c1">Exit</span>(<span class="pl-c1">1</span>)
+    }
+    <span class="pl-c1">println</span>(t.<span class="pl-smi">Property</span>)     <span class="pl-c">// =&gt; 42</span>
+    <span class="pl-c1">println</span>(t.<span class="pl-smi">Group</span>.<span class="pl-smi">String</span>) <span class="pl-c">// =&gt; "Hello, world!"</span>
+    <span class="pl-c1">println</span>(t.<span class="pl-smi">Group</span>.<span class="pl-smi">Double</span>) <span class="pl-c">// =&gt; 1.23</span>
+    <span class="pl-c1">println</span>(t.<span class="pl-smi">RefString</span>)    <span class="pl-c">// =&gt; "Hello, world!"</span>
+    <span class="pl-c1">println</span>(t.<span class="pl-smi">PropRef</span>)      <span class="pl-c">// =&gt; 42</span>
+    os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
+}</pre></div>
+
+<h2>
+<a id="nesting" class="anchor" href="#nesting" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Nesting</h2>
+
+<p>Pure file:</p>
+
+<pre><code>nested
+    anotherone
+        prop = "Hello, world!"
+</code></pre>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">AnotherOne</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">String</span> <span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"prop"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">Nested</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">AnotherNested</span> *AnotherOne <span class="pl-s"><span class="pl-pds">`</span>pure:"anotherone"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">Base</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Nested</span> *Nested <span class="pl-s"><span class="pl-pds">`</span>pure:"nested"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">base</span> <span class="pl-k">:=</span> &amp;Base{
+        Nested: &amp;Nested{
+            AnotherNested: &amp;AnotherOne{},
+        },
+    }
+
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>nested-group-file.pure<span class="pl-pds">"</span></span>)
+
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, base)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">println</span>(err.<span class="pl-c1">Error</span>())
+        os.<span class="pl-c1">Exit</span>(<span class="pl-c1">1</span>)
+    }
+
+    <span class="pl-c1">println</span>(base.<span class="pl-smi">Nested</span>.<span class="pl-smi">AnotherNested</span>.<span class="pl-smi">String</span>) <span class="pl-c">// =&gt; "Hello, world!"</span>
+    os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
+}</pre></div>
+
+<h2>
+<a id="including-files" class="anchor" href="#including-files" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Including files</h2>
+
+<p>Pure file to be included:</p>
+
+<pre><code>someproperty = 123
+</code></pre>
+
+<p>Main pure file:</p>
+
+<pre><code>%include ./someincludefile.pure
+
+aProperty = "some \
+             weird text \
+             here or something"
+</code></pre>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Include</span> <span class="pl-k">struct</span> {
+    <span class="pl-c">// Property to be included</span>
+    <span class="pl-v">SomeProperty</span> <span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"someproperty"<span class="pl-pds">`</span></span>
+
+    <span class="pl-c">// Base file Property</span>
+    <span class="pl-v">AProperty</span> <span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"aProperty"<span class="pl-pds">`</span></span>
+}
+
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">it</span> <span class="pl-k">:=</span> &amp;Include{}
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>./some-pure-file.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, it)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">panic</span>(err)
+    }
+    <span class="pl-c1">println</span>(it.<span class="pl-smi">SomeProperty</span>) <span class="pl-c">// =&gt; 123</span>
+    <span class="pl-c1">println</span>(it.<span class="pl-smi">AProperty</span>)    <span class="pl-c">// =&gt; "some weird text here or something"</span>
+}</pre></div>
+
+<h2>
+<a id="quantities" class="anchor" href="#quantities" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Quantities</h2>
+
+<p>Pure file:</p>
+
+<pre><code>quantity = 5m^2
+</code></pre>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Q</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Quantity</span> *pure.<span class="pl-smi">Quantity</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"quantity"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">q</span> <span class="pl-k">:=</span> &amp;Q{}
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>./quantity.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, q)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">panic</span>(err)
+    }
+    <span class="pl-c1">println</span>(q.<span class="pl-smi">Quantity</span>.<span class="pl-c1">Value</span>()) <span class="pl-c">// =&gt; 5</span>
+    <span class="pl-c1">println</span>(q.<span class="pl-smi">Quantity</span>.<span class="pl-c1">Unit</span>())  <span class="pl-c">// =&gt; 'm^2'</span>
+}</pre></div>
+
+<h2>
+<a id="environment-variables" class="anchor" href="#environment-variables" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Environment variables</h2>
+
+<p>Pure file:</p>
+
+<pre><code>env = ${GOPATH}
+</code></pre>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Env</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">E</span> *pure.<span class="pl-smi">Env</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"env"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">e</span> <span class="pl-k">:=</span> &amp;Env{}
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>envfile.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, e)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">penic</span>(err)
+    }
+    <span class="pl-c1">println</span>(e.<span class="pl-smi">E</span>.<span class="pl-c1">Expand</span>()) <span class="pl-c">// =&gt; X:\your\go\path</span>
+    os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
+}
+</pre></div>
+
+<h2>
+<a id="paths" class="anchor" href="#paths" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Paths</h2>
+
+<p>Pure file:</p>
+
+<pre><code>dir = ./some/directory/
+file = ./some/directory/some/file.txt
+</code></pre>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span>(
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Dirs</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Dir</span> *pure.<span class="pl-smi">Path</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"dir"<span class="pl-pds">`</span></span>
+    <span class="pl-v">File</span> *pure.<span class="pl-smi">Path</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"file"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">dir</span> <span class="pl-k">:=</span> &amp;Dirs{}
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>./purefile.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, dir)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">panic</span>(err)
+    }
+
+    <span class="pl-c1">println</span>(dir.<span class="pl-smi">Dir</span>.<span class="pl-c1">Base</span>()) <span class="pl-c">// =&gt; 'directory'</span>
+    <span class="pl-c1">println</span>(dir.<span class="pl-smi">File</span>.<span class="pl-c1">FileExtension</span>()) <span class="pl-c">// =&gt; '.txt'</span>
+    os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
+}</pre></div>
+
+<h2>
+<a id="arrays" class="anchor" href="#arrays" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Arrays</h2>
+
+<p>For now arrays only work for basic types (string, int, path...), and not for Groups.</p>
+
+<p>Pure file:</p>
+
+<pre><code>array = [
+    "Hello"
+    "World!"
+]
+
+map = [
+    int = 123
+    anotherint = 321
+]
+</code></pre>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span>(
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>io/ioutil<span class="pl-pds">"</span></span>
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Array</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Arr</span> []<span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"array"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Map</span> <span class="pl-k">map</span>[<span class="pl-k">string</span>]<span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"array"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">arr</span> <span class="pl-k">:=</span> &amp;Array{Map: <span class="pl-c1">make</span>(<span class="pl-k">map</span>[<span class="pl-k">string</span>]<span class="pl-k">int</span>)} <span class="pl-c">// Very important to initialize the map before unmarshaling</span>
+    <span class="pl-smi">b</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> ioutil.<span class="pl-c1">ReadFile</span>(<span class="pl-s"><span class="pl-pds">"</span>array-pure-file.pure<span class="pl-pds">"</span></span>)
+
+    <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Unmarshal</span>(b, arr)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">println</span>(err.<span class="pl-c1">Error</span>())
+        os.<span class="pl-c1">Exit</span>(<span class="pl-c1">1</span>)
+    }
+
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">0</span>])        <span class="pl-c">// =&gt; "Hello"</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">1</span>])        <span class="pl-c">// =&gt; "World!"</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>int<span class="pl-pds">"</span></span>])    <span class="pl-c">// =&gt; 123</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>anotherint<span class="pl-pds">"</span></span>]) <span class="pl-c">// =&gt; 321</span>
+    os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
+}
+</pre></div>
+
+<h1>
+<a id="progress" class="anchor" href="#progress" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Progress</h1>
+
+<ul>
+<li>[x] Dot notation groups</li>
+<li>[x] Newline-tab groups</li>
+<li>[x] Regular properties</li>
+<li>[x] Referencing</li>
+<li>[x] Quantities</li>
+<li>[x] Paths</li>
+<li>[x] Environment variables</li>
+<li>[x] Group Nesting</li>
+<li>[ ] Arrays</li>
+<li>[ ] Schema support</li>
+<li>[x] Include files</li>
+<li>[ ] Encoding to Pure format</li>
+<li>[ ] Unquoted strings</li>
+<li>[x] Character escaping</li>
+<li>[x] Multiline values</li>
+</ul>
+
+<h1>
+<a id="contributing" class="anchor" href="#contributing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Contributing</h1>
+
+<ol>
+<li>Fork it ( <a href="https://github.com/Krognol/go-pure/fork">https://github.com/Krognol/go-pure/fork</a> )</li>
+<li>Create your feature branch (git checkout -b my-new-feature)</li>
+<li>Commit your changes (git commit -am 'Add some feature')</li>
+<li>Push to the branch (git push origin my-new-feature)</li>
+<li>Create a new Pull Request</li>
+</ol>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/Krognol">Krognol</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
