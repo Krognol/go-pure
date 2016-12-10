@@ -78,6 +78,7 @@ func (e *encoder) group(v reflect.Value) {
 }
 
 func (e *encoder) mäp(v reflect.Value) {
+	keys := v.MapKeys()
 	for i := 0; i < v.Len(); i++ {
 		e.buf.WriteString("\r\n")
 		for i := 0; i < e.indent*e.indentlevel; i++ {
@@ -87,46 +88,49 @@ func (e *encoder) mäp(v reflect.Value) {
 		if fi := v.Interface(); fi != nil {
 			switch fi.(type) {
 			case *Quantity:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(*Quantity).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(*Quantity).value))
 				continue
 			case Quantity:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(Quantity).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(Quantity).value))
 				continue
 			case *Path:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(*Path).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(*Path).value))
 				continue
 			case Path:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(Path).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(Path).value))
 				continue
 			case *Env:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(*Env).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(*Env).value))
 				continue
 			case Env:
-				e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], fi.(Env).value))
+				e.buf.WriteString(fmt.Sprintf("%v = %v", keys[i], fi.(Env).value))
 				continue
 			}
 		}
 
+		key := keys[i]
+		val := v.MapIndex(key)
+		fmt.Printf("%v: %v", key, val)
 		switch reflect.TypeOf(v.Interface()).Elem().Kind() {
 		case reflect.Int, reflect.Float64, reflect.Bool:
-			e.buf.WriteString(fmt.Sprintf("%v = %v", v.MapKeys()[i], v.MapIndex(v.MapKeys()[i])))
+			e.buf.WriteString(fmt.Sprintf("%v = %v", key, val))
 		case reflect.String:
-			e.buf.WriteString(fmt.Sprintf("%v = \"%v\"", v.MapKeys()[i], v.MapIndex(v.MapKeys()[i])))
+			e.buf.WriteString(fmt.Sprintf("%v = \"%v\"", key, val))
 		case reflect.Ptr, reflect.Struct:
 			e.indentlevel++
-			e.buf.WriteString(fmt.Sprintf("%v", v.MapKeys()[i]))
-			e.group(v.MapIndex(v.MapKeys()[i]))
+			e.buf.WriteString(fmt.Sprintf("%v", key))
+			e.group(val)
 			e.indentlevel--
 		case reflect.Slice:
 			e.indentlevel++
-			e.buf.WriteString(fmt.Sprintf("%v = [", v.MapKeys()[i]))
-			e.array(v.MapIndex(v.MapKeys()[i]))
+			e.buf.WriteString(fmt.Sprintf("%v = [", key))
+			e.array(val)
 			e.buf.WriteString("\n]\n")
 			e.indentlevel--
 		case reflect.Map:
 			e.indentlevel++
-			e.buf.WriteString(fmt.Sprintf("%v = [", v.MapKeys()[i]))
-			e.mäp(v.MapIndex(v.MapKeys()[i]))
+			e.buf.WriteString(fmt.Sprintf("%v = [", key))
+			e.mäp(val)
 			e.buf.WriteString("\n]\n")
 			e.indentlevel--
 		}
