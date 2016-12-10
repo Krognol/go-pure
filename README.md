@@ -325,6 +325,93 @@ func main() {
 
 ```
 
+## Encoding
+Go program:
+```go
+package main
+
+import (
+	"os"
+
+	"github.com/Krognol/pure"
+)
+
+type Nested struct {
+	Bool   bool   `pure:"bool"`
+	String string `pure:"another_string"`
+}
+
+type Group struct {
+	Bool   bool    `pure:"bool"`
+	String string  `pure:"another_string"`
+	Nested *Nested `pure:"nested"`
+}
+
+type EncodingTest struct {
+	Int    int                `pure:"int"`
+	Double float64            `pure:"double"`
+	String string             `pure:"string"`
+	Group  *Group             `pure:"group"`
+	Array  []int              `pure:"array"`
+	Map    map[string]float64 `pure:"map"`
+}
+
+func main() {
+	g := &EncodingTest{
+		Int:    1,
+		Double: 3.14,
+		String: "hello, world!",
+		Group: &Group{
+			Bool:   true,
+			String: "yet another string",
+			Nested: &Nested{
+				Bool:   false,
+				String: "nesting test",
+			},
+		},
+	}
+	g.Array = []int{0, 1, 2, 3, 4}
+	g.Map = map[string]float64{"pi": 3.14, "two": 2.13, "one": 1.12, "zero": 0.11}
+	b, err := pure.Marhsal(g)
+	if err != nil {
+		panic(err)
+	}
+	f, _ := os.Create("encode_test.pure")
+	_, nerr := f.Write(b)
+	if nerr != nil {
+		panic(nerr)
+	}
+}
+```
+Output file:
+```
+int = 1
+double = 3.14
+string = "hello, world!"
+group
+    bool = true
+    another_string = "yet another string"
+    nested
+        bool = false
+        another_string = "nesting test"
+
+array = [
+    0
+    1
+    2
+    3
+    4
+]
+
+# Map order isn't guaranteed
+map = [
+    pi = 3.14
+    two = 2.13
+    one = 1.12
+    zero = 0.11
+]
+
+```
 
 # Progress
 - [x] Dot notation groups
@@ -339,7 +426,7 @@ func main() {
 - [x] Include files
 - [x] Character escaping
 - [x] Multiline values
-- [ ] Encoding to Pure format
+- [x] Encoding to Pure format
 - [ ] Unquoted strings
 - [ ] Schema support
 
