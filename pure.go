@@ -303,8 +303,9 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 
 				if lit == "\r" {
-					if b := u.Peek(2); b[0] == '\n' && (IsWhitespace(b[len(b)] - 1)) {
-						continue
+					if b := u.Peek(2); len(b) > 0 && b[0] == '\n' && (IsWhitespace(b[len(b)-1])) {
+						u.tagTok, u.tagID = u.ScanSkipWhitespace()
+						break
 					}
 					return nil
 				}
@@ -325,12 +326,10 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 						fmt.Println(err.Error())
 					}
 				}
-
-				u.tagID = lit
-
-				tok, lit = u.ScanSkipWhitespace()
-
-				if tok == EQUALS {
+				if lit != "=" {
+					u.tagID = lit
+					tok, lit = u.ScanSkipWhitespace()
+				} else {
 					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
 				}
 
@@ -483,6 +482,16 @@ func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 			}
 			v.Field(_i).Set(field)
 		}
+	}
+
+	if u.tagTok == GROUP {
+		key := u.tagID
+		u.tagTok, u.tagID = u.ScanSkipWhitespace()
+		val := reflect.New(reflect.TypeOf(field.Interface()).Elem()).Interface()
+		u.group(val)
+
+		field.SetMapIndex(reflect.ValueOf(key), u.indirect(reflect.ValueOf(val)))
+		v.Field(_i).Set(field)
 	}
 	return nil
 }
