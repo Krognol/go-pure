@@ -41,26 +41,15 @@
 <h1>
 <a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h1>
 
-<h2>
-<a id="properties--property-references" class="anchor" href="#properties--property-references" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Properties &amp; property references</h2>
-
 <p>Pure file:</p>
 
-<pre><code># This is a comment
+<pre><code>intproperty = 43
 
-# This is a property
-intproperty = 43
-
-# This is a group property
-# A group is specified with either
-# dot.notation as seen below...
 agroup.double = 1.23
 
-# ...or a newline + tab format
 agroup
     groupstring = "Hello, world!"
 
-# You can reference other variables with the '=&gt;' operator
 refstring =&gt; agroup.groupstring
 refint =&gt; intproperty
 </code></pre>
@@ -318,6 +307,11 @@ map = [
     int = 123
     anotherint = 321
 ]
+
+map2 = [
+    group
+        int = 213
+]
 </code></pre>
 
 <p>Go program:</p>
@@ -330,9 +324,14 @@ map = [
     <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/go-pure<span class="pl-pds">"</span></span>
 )
 
+<span class="pl-k">type</span> <span class="pl-v">Group</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Int</span> <span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"int"<span class="pl-pds">`</span></span>
+}
+
 <span class="pl-k">type</span> <span class="pl-v">Array</span> <span class="pl-k">struct</span> {
     <span class="pl-v">Arr</span> []<span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"array"<span class="pl-pds">`</span></span>
     <span class="pl-v">Map</span> <span class="pl-k">map</span>[<span class="pl-k">string</span>]<span class="pl-k">int</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"array"<span class="pl-pds">`</span></span>
+    <span class="pl-v">GroupMap</span> <span class="pl-k">map</span>[<span class="pl-k">string</span>]Group <span class="pl-s"><span class="pl-pds">`</span>pure:"map2"<span class="pl-pds">`</span></span>
 }
 
 <span class="pl-k">func</span> <span class="pl-en">main</span>() {
@@ -345,13 +344,104 @@ map = [
         os.<span class="pl-c1">Exit</span>(<span class="pl-c1">1</span>)
     }
 
-    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">0</span>])        <span class="pl-c">// =&gt; "Hello"</span>
-    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">1</span>])        <span class="pl-c">// =&gt; "World!"</span>
-    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>int<span class="pl-pds">"</span></span>])    <span class="pl-c">// =&gt; 123</span>
-    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>anotherint<span class="pl-pds">"</span></span>]) <span class="pl-c">// =&gt; 321</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">0</span>])               <span class="pl-c">// =&gt; "Hello"</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Arr</span>[<span class="pl-c1">1</span>])               <span class="pl-c">// =&gt; "World!"</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>int<span class="pl-pds">"</span></span>])           <span class="pl-c">// =&gt; 123</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">Map</span>[<span class="pl-s"><span class="pl-pds">"</span>anotherint<span class="pl-pds">"</span></span>])    <span class="pl-c">// =&gt; 321</span>
+    <span class="pl-c1">println</span>(arr.<span class="pl-smi">GroupMap</span>[<span class="pl-s"><span class="pl-pds">"</span>map2<span class="pl-pds">"</span></span>].<span class="pl-smi">Int</span>) <span class="pl-c">// =&gt; 213</span>
     os.<span class="pl-c1">Exit</span>(<span class="pl-c1">0</span>)
 }
 </pre></div>
+
+<h2>
+<a id="encoding" class="anchor" href="#encoding" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Encoding</h2>
+
+<p>Go program:</p>
+
+<div class="highlight highlight-source-go"><pre><span class="pl-k">package</span> main
+
+<span class="pl-k">import</span> (
+    <span class="pl-s"><span class="pl-pds">"</span>os<span class="pl-pds">"</span></span>
+
+    <span class="pl-s"><span class="pl-pds">"</span>github.com/Krognol/pure<span class="pl-pds">"</span></span>
+)
+
+<span class="pl-k">type</span> <span class="pl-v">Nested</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Bool</span>   <span class="pl-k">bool</span>   <span class="pl-s"><span class="pl-pds">`</span>pure:"bool"<span class="pl-pds">`</span></span>
+    <span class="pl-v">String</span> <span class="pl-k">string</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"another_string"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">Group</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Bool</span>   <span class="pl-k">bool</span>    <span class="pl-s"><span class="pl-pds">`</span>pure:"bool"<span class="pl-pds">`</span></span>
+    <span class="pl-v">String</span> <span class="pl-k">string</span>  <span class="pl-s"><span class="pl-pds">`</span>pure:"another_string"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Nested</span> *Nested <span class="pl-s"><span class="pl-pds">`</span>pure:"nested"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">type</span> <span class="pl-v">EncodingTest</span> <span class="pl-k">struct</span> {
+    <span class="pl-v">Int</span>    <span class="pl-k">int</span>                <span class="pl-s"><span class="pl-pds">`</span>pure:"int"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Double</span> <span class="pl-k">float64</span>            <span class="pl-s"><span class="pl-pds">`</span>pure:"double"<span class="pl-pds">`</span></span>
+    <span class="pl-v">String</span> <span class="pl-k">string</span>             <span class="pl-s"><span class="pl-pds">`</span>pure:"string"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Group</span>  *Group             <span class="pl-s"><span class="pl-pds">`</span>pure:"group"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Array</span>  []<span class="pl-k">int</span>              <span class="pl-s"><span class="pl-pds">`</span>pure:"array"<span class="pl-pds">`</span></span>
+    <span class="pl-v">Map</span>    <span class="pl-k">map</span>[<span class="pl-k">string</span>]<span class="pl-k">float64</span> <span class="pl-s"><span class="pl-pds">`</span>pure:"map"<span class="pl-pds">`</span></span>
+}
+
+<span class="pl-k">func</span> <span class="pl-en">main</span>() {
+    <span class="pl-smi">g</span> <span class="pl-k">:=</span> &amp;EncodingTest{
+        Int:    <span class="pl-c1">1</span>,
+        Double: <span class="pl-c1">3.14</span>,
+        String: <span class="pl-s"><span class="pl-pds">"</span>hello, world!<span class="pl-pds">"</span></span>,
+        Group: &amp;Group{
+            Bool:   <span class="pl-c1">true</span>,
+            String: <span class="pl-s"><span class="pl-pds">"</span>yet another string<span class="pl-pds">"</span></span>,
+            Nested: &amp;Nested{
+                Bool:   <span class="pl-c1">false</span>,
+                String: <span class="pl-s"><span class="pl-pds">"</span>nesting test<span class="pl-pds">"</span></span>,
+            },
+        },
+    }
+    g.<span class="pl-smi">Array</span> = []<span class="pl-k">int</span>{<span class="pl-c1">0</span>, <span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">4</span>}
+    g.<span class="pl-smi">Map</span> = <span class="pl-k">map</span>[<span class="pl-k">string</span>]<span class="pl-k">float64</span>{<span class="pl-s"><span class="pl-pds">"</span>pi<span class="pl-pds">"</span></span>: <span class="pl-c1">3.14</span>, <span class="pl-s"><span class="pl-pds">"</span>two<span class="pl-pds">"</span></span>: <span class="pl-c1">2.13</span>, <span class="pl-s"><span class="pl-pds">"</span>one<span class="pl-pds">"</span></span>: <span class="pl-c1">1.12</span>, <span class="pl-s"><span class="pl-pds">"</span>zero<span class="pl-pds">"</span></span>: <span class="pl-c1">0.11</span>}
+    <span class="pl-smi">b</span>, <span class="pl-smi">err</span> <span class="pl-k">:=</span> pure.<span class="pl-c1">Marhsal</span>(g)
+    <span class="pl-k">if</span> err != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">panic</span>(err)
+    }
+    <span class="pl-smi">f</span>, <span class="pl-smi">_</span> <span class="pl-k">:=</span> os.<span class="pl-c1">Create</span>(<span class="pl-s"><span class="pl-pds">"</span>encode_test.pure<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">_</span>, <span class="pl-smi">nerr</span> <span class="pl-k">:=</span> f.<span class="pl-c1">Write</span>(b)
+    <span class="pl-k">if</span> nerr != <span class="pl-c1">nil</span> {
+        <span class="pl-c1">panic</span>(nerr)
+    }
+}</pre></div>
+
+<p>Output file:</p>
+
+<pre><code>int = 1
+double = 3.14
+string = "hello, world!"
+group
+    bool = true
+    another_string = "yet another string"
+    nested
+        bool = false
+        another_string = "nesting test"
+
+array = [
+    0
+    1
+    2
+    3
+    4
+]
+
+# Map order isn't guaranteed
+map = [
+    pi = 3.14
+    two = 2.13
+    one = 1.12
+    zero = 0.11
+]
+
+</code></pre>
 
 <h1>
 <a id="progress" class="anchor" href="#progress" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Progress</h1>
@@ -365,13 +455,13 @@ map = [
 <li>[x] Paths</li>
 <li>[x] Environment variables</li>
 <li>[x] Group Nesting</li>
-<li>[ ] Arrays</li>
-<li>[ ] Schema support</li>
+<li>[x] Arrays</li>
 <li>[x] Include files</li>
-<li>[ ] Encoding to Pure format</li>
-<li>[ ] Unquoted strings</li>
 <li>[x] Character escaping</li>
 <li>[x] Multiline values</li>
+<li>[x] Encoding to Pure format</li>
+<li>[ ] Unquoted strings</li>
+<li>[ ] Schema support</li>
 </ul>
 
 <h1>
