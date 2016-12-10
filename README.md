@@ -277,6 +277,11 @@ map = [
 	int = 123
 	anotherint = 321
 ]
+
+map2 = [
+	group
+		int = 213
+]
 ```
 
 Go program:
@@ -290,9 +295,14 @@ import(
 	"github.com/Krognol/go-pure"
 )
 
+type Group struct {
+	Int int `pure:"int"`
+}
+
 type Array struct {
 	Arr []string `pure:"array"`
 	Map map[string]int `pure:"array"`
+	GroupMap map[string]Group `pure:"map2"`
 }
 
 func main() {
@@ -305,10 +315,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	println(arr.Arr[0])        // => "Hello"
-	println(arr.Arr[1])        // => "World!"
-	println(arr.Map["int"])    // => 123
-	println(arr.Map["anotherint"]) // => 321
+	println(arr.Arr[0])        		  // => "Hello"
+	println(arr.Arr[1])        		  // => "World!"
+	println(arr.Map["int"])    		  // => 123
+	println(arr.Map["anotherint"])    // => 321
+	println(arr.GroupMap["map2"].Int) // => 213
 	os.Exit(0)
 }
 
