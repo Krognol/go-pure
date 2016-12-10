@@ -335,13 +335,13 @@ func main() {
 - [x] Paths
 - [x] Environment variables
 - [x] Group Nesting
-- [ ] Arrays
-- [ ] Schema support
+- [x] Arrays
 - [x] Include files
-- [ ] Encoding to Pure format
-- [ ] Unquoted strings
 - [x] Character escaping
 - [x] Multiline values
+- [ ] Encoding to Pure format
+- [ ] Unquoted strings
+- [ ] Schema support
 
 # Contributing
 1. Fork it ( https://github.com/Krognol/go-pure/fork )
