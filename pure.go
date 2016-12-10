@@ -74,7 +74,7 @@ func (u *unmarshaler) typeCheck(field reflect.Value) {
 				return
 			}
 			fi = NewQuantity(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
+			field.Set(indirect(reflect.ValueOf(fi)))
 			return
 		case *Env:
 			if u.tagTyp != "env" {
@@ -90,7 +90,7 @@ func (u *unmarshaler) typeCheck(field reflect.Value) {
 				return
 			}
 			fi = NewEnv(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
+			field.Set(indirect(reflect.ValueOf(fi)))
 			return
 		case *Path:
 			if u.tagTyp != "path" {
@@ -106,7 +106,7 @@ func (u *unmarshaler) typeCheck(field reflect.Value) {
 				return
 			}
 			fi = NewPath(u.tagValue)
-			field.Set(u.indirect(reflect.ValueOf(fi)))
+			field.Set(indirect(reflect.ValueOf(fi)))
 			return
 		}
 
@@ -173,7 +173,7 @@ func (u *unmarshaler) setTyp() {
 }
 
 // Shamelessly stolen from the Golang JSON decode source. Forgive
-func (u *unmarshaler) indirect(v reflect.Value) reflect.Value {
+func indirect(v reflect.Value) reflect.Value {
 	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
 		v = v.Addr()
 	}
@@ -231,7 +231,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 
 	switch v.Kind() {
 	case reflect.Ptr:
-		iv := u.indirect(v.Elem())
+		iv := indirect(v.Elem())
 		for i := 0; i < iv.NumField(); i++ {
 			tag := iv.Type().Field(i).Tag.Get(tagName)
 			if tag != "" && tag != "-" && tag == u.tagID {
@@ -240,7 +240,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			}
 		}
 	case reflect.Struct:
-		iv := u.indirect(v)
+		iv := indirect(v)
 		tv := reflect.TypeOf(v.Interface())
 
 		for i := 0; i < iv.NumField(); i++ {
@@ -254,7 +254,7 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 	}
 
 	if !field.IsValid() {
-		field = u.indirect(v)
+		field = indirect(v)
 	}
 	// There has to be a better way for this
 	u.typeCheck(field)
@@ -289,7 +289,7 @@ func (u *unmarshaler) PeekLiteral() string {
 }
 
 func (u *unmarshaler) group(v interface{}) *pureError {
-	iv := u.indirect(reflect.ValueOf(v))
+	iv := indirect(reflect.ValueOf(v))
 	tv := reflect.TypeOf(v)
 	for i := 0; i < iv.NumField(); i++ {
 		tag := tv.Elem().Field(i).Tag.Get(tagName)
@@ -346,7 +346,7 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 }
 
 func (u *unmarshaler) GetStruct(name string, v interface{}) reflect.Value {
-	iv := u.indirect(reflect.ValueOf(v))
+	iv := indirect(reflect.ValueOf(v))
 	for i := 0; i < iv.NumField(); i++ {
 		tag := reflect.TypeOf(v).Elem().Field(i).Tag.Get(tagName)
 		if tag == name {
@@ -358,7 +358,7 @@ func (u *unmarshaler) GetStruct(name string, v interface{}) reflect.Value {
 
 func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 	if v.Kind() == reflect.Ptr {
-		iv := u.indirect(v.Elem())
+		iv := indirect(v.Elem())
 
 		for i := 0; i < iv.NumField(); i++ {
 			tag := iv.Type().Field(i).Tag.Get(tagName)
@@ -370,7 +370,7 @@ func (u *unmarshaler) GetField(name string, v reflect.Value) reflect.Value {
 	}
 
 	if v.Kind() == reflect.Struct {
-		iv := u.indirect(v)
+		iv := indirect(v)
 		tv := reflect.TypeOf(v.Interface())
 		for i := 0; i < iv.NumField(); i++ {
 			tag := tv.Field(i).Tag.Get(tagName)
@@ -429,7 +429,7 @@ func (u *unmarshaler) appendArray(field reflect.Value) reflect.Value {
 
 func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 	var field reflect.Value
-	//iv := u.indirect(v)
+	//iv := indirect(v)
 	var _i int
 	for i := 0; i < v.NumField(); i++ {
 		tag := v.Type().Field(i).Tag.Get(tagName)
@@ -490,7 +490,7 @@ func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 		val := reflect.New(reflect.TypeOf(field.Interface()).Elem()).Interface()
 		u.group(val)
 
-		field.SetMapIndex(reflect.ValueOf(key), u.indirect(reflect.ValueOf(val)))
+		field.SetMapIndex(reflect.ValueOf(key), indirect(reflect.ValueOf(val)))
 		v.Field(_i).Set(field)
 	}
 	return nil
@@ -498,7 +498,7 @@ func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 
 func (u *unmarshaler) array(v reflect.Value) *pureError {
 	var field reflect.Value
-	iv := u.indirect(v)
+	iv := indirect(v)
 	temp := u.tagID
 
 	for i := 0; i < iv.NumField(); i++ {
@@ -544,7 +544,7 @@ func (u *unmarshaler) array(v reflect.Value) *pureError {
 // Gotta pretty this up it's really ugly
 // Makes me wanna vomit
 func (u *unmarshaler) unmarshal(v interface{}) {
-	pv := u.indirect(reflect.ValueOf(v))
+	pv := indirect(reflect.ValueOf(v))
 	for {
 		tok, lit := u.ScanSkipWhitespace()
 		u.tagID = lit
@@ -612,7 +612,7 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					// If there's no '.'
 					// assume it's a regular property and not a group property
 					tok, lit = u.ScanSkipWhitespace()
-					field = u.GetField(u.tagID, u.indirect(reflect.ValueOf(v)))
+					field = u.GetField(u.tagID, indirect(reflect.ValueOf(v)))
 				}
 
 				// type check
