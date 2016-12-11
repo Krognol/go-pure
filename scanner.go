@@ -235,6 +235,40 @@ func (s *scanner) ScanInclude() (tok Token, lit string) {
 	}
 }
 
+func (s *scanner) ScanUnquotedString() (tok Token, lit string) {
+	var buf bytes.Buffer
+	if IsWhitespace(s.Peek()) {
+		s.scan()
+	}
+
+	tok = STRING
+	for c := s.scan(); c != '\r' && c != eof; c = s.scan() {
+		if c == eof {
+			return tok, buf.String()
+		}
+
+		if c == '\\' {
+			if p := s.Peek(); p == '\n' || p == '\r' {
+				for {
+					c = s.scan()
+
+					if IsWhitespace(c) {
+						continue
+					}
+					s.unread()
+					break
+				}
+			}
+			buf.WriteByte(s.scan())
+			continue
+		}
+
+		buf.WriteByte(c)
+	}
+	s.scan()
+	return STRING, buf.String()
+}
+
 func (s *scanner) ConsumeComment() {
 	for {
 		c := s.scan()
