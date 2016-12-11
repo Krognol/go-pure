@@ -110,7 +110,6 @@ func (e *encoder) mäp(v reflect.Value) {
 
 		key := keys[i]
 		val := v.MapIndex(key)
-		fmt.Printf("%v: %v", key, val)
 		switch reflect.TypeOf(v.Interface()).Elem().Kind() {
 		case reflect.Int, reflect.Float64, reflect.Bool:
 			e.buf.WriteString(fmt.Sprintf("%v = %v", key, val))
