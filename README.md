@@ -13,6 +13,8 @@ intproperty = 43
 
 agroup.double = 1.23
 
+uqstring = This is an unquoted string!
+
 agroup
     groupstring = "Hello, world!"
 
@@ -35,6 +37,7 @@ type T struct {
 	Group    *G  `pure:"agroup"`
 	RefString string `pure:"refstring"`
 	PropRef int `pure:"refint"`
+	Unquoted string `pure:"uqstring,unquoted"`
 }
 
 type G struct {
@@ -55,6 +58,7 @@ func main() {
 	println(t.Group.Double) // => 1.23
 	println(t.RefString)    // => "Hello, world!"
 	println(t.PropRef)      // => 42
+	println(t.Unquoted) 	// => "This is an unquoted string!"
 	os.Exit(0)
 }
 ```
