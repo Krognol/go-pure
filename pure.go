@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type state int
@@ -19,6 +20,7 @@ type unmarshaler struct {
 	tagValue string
 	tagTok   Token
 	tagTyp   string
+	tagExt   string
 }
 
 func (u *unmarshaler) typeCheck(field reflect.Value) {
@@ -228,14 +230,35 @@ func (u *unmarshaler) ScanSkipWhitespace() (tok Token, lit string) {
 
 func (u *unmarshaler) field(v reflect.Value) *pureError {
 	var field reflect.Value
-
+	var tags []string
 	switch v.Kind() {
 	case reflect.Ptr:
 		iv := indirect(v.Elem())
 		for i := 0; i < iv.NumField(); i++ {
 			tag := iv.Type().Field(i).Tag.Get(tagName)
+
 			if tag != "" && tag != "-" && tag == u.tagID {
 				field = iv.Field(i)
+				// Consume the '=' and get the token and value for the property
+				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+
+				// type check
+				u.setTyp()
+				break
+			} else if tags = strings.Split(tag, ","); len(tags) > 0 && tags[0] == u.tagID {
+				field = iv.Field(i)
+				u.tagExt = tags[1]
+
+				if u.tagExt == "unquoted" {
+					u.tagTok, u.tagValue = u.Scanner.ScanUnquotedString()
+					u.setTyp()
+				} else {
+					// Consume the '=' and get the token and value for the property
+					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+
+					// type check
+					u.setTyp()
+				}
 				break
 			}
 		}
@@ -248,8 +271,21 @@ func (u *unmarshaler) field(v reflect.Value) *pureError {
 			if tag != "" && tag != "-" && tag == u.tagID {
 				field = iv.Field(i)
 				break
-			}
+			} else if tags = strings.Split(tag, ","); len(tags) > 0 && tags[0] == u.tagID {
+				field = iv.Field(i)
+				u.tagExt = tags[1]
 
+				if u.tagExt == "unquoted" {
+					u.tagTok, u.tagValue = u.Scanner.ScanUnquotedString()
+					u.setTyp()
+				} else {
+					// Consume the '=' and get the token and value for the property
+					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+
+					// type check
+					u.setTyp()
+				}
+			}
 		}
 	}
 
@@ -291,14 +327,17 @@ func (u *unmarshaler) PeekLiteral() string {
 func (u *unmarshaler) group(v interface{}) *pureError {
 	iv := indirect(reflect.ValueOf(v))
 	tv := reflect.TypeOf(v)
+	var tags []string
 	for i := 0; i < iv.NumField(); i++ {
 		tag := tv.Elem().Field(i).Tag.Get(tagName)
-
 		if tag == u.tagID {
+			if tags = strings.Split(tag, ","); len(tags) > 0 {
+				u.tagExt = tags[1]
+			}
 			f := iv.Field(i)
 			for {
 				tok, lit := u.Scan()
-				if tok == EOF {
+				if tok == EOF || tok == RBRACK {
 					return nil
 				}
 
@@ -328,9 +367,17 @@ func (u *unmarshaler) group(v interface{}) *pureError {
 				}
 				if lit != "=" {
 					u.tagID = lit
-					tok, lit = u.ScanSkipWhitespace()
+					if u.tagExt == "unquoted" {
+						tok, lit = u.Scanner.ScanUnquotedString()
+					} else {
+						tok, lit = u.ScanSkipWhitespace()
+					}
 				} else {
-					u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+					if u.tagExt == "unquoted" {
+						u.tagTok, u.tagValue = u.Scanner.ScanUnquotedString()
+					} else {
+						u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+					}
 				}
 
 				u.setTyp()
@@ -429,11 +476,14 @@ func (u *unmarshaler) appendArray(field reflect.Value) reflect.Value {
 
 func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 	var field reflect.Value
-	//iv := indirect(v)
 	var _i int
+	var tags []string
 	for i := 0; i < v.NumField(); i++ {
 		tag := v.Type().Field(i).Tag.Get(tagName)
 		if tag == name {
+			if tags = strings.Split(tag, ","); len(tags) > 0 {
+				u.tagExt = tags[1]
+			}
 			field = v.Field(i)
 			_i = i
 			break
@@ -444,7 +494,11 @@ func (u *unmarshaler) mäp(name string, v reflect.Value) *pureError {
 	if u.tagTok == IDENTIFIER {
 		key := u.tagID
 		if tok, _ := u.ScanSkipWhitespace(); tok == EQUALS {
-			u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+			if u.tagExt == "unquoted" {
+				u.tagTok, u.tagValue = u.Scanner.ScanUnquotedString()
+			} else {
+				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
+			}
 			u.setTyp()
 			switch u.tagTyp {
 			case "int":
@@ -500,11 +554,14 @@ func (u *unmarshaler) array(v reflect.Value) *pureError {
 	var field reflect.Value
 	iv := indirect(v)
 	temp := u.tagID
-
+	var tags []string
 	for i := 0; i < iv.NumField(); i++ {
 		tag := iv.Type().Field(i).Tag.Get(tagName)
 		if tag == u.tagID {
 			field = iv.Field(i)
+			if tags = strings.Split(tag, ","); len(tags) > 0 {
+				u.tagExt = tags[1]
+			}
 			break
 		}
 	}
@@ -518,7 +575,11 @@ func (u *unmarshaler) array(v reflect.Value) *pureError {
 
 		if lit == "[" {
 			for {
-				tok, lit = u.ScanSkipWhitespace()
+				if u.tagExt == "unquoted" {
+					u.tagTok, u.tagValue = u.Scanner.ScanUnquotedString()
+				} else {
+					tok, lit = u.ScanSkipWhitespace()
+				}
 				if tok == GROUP || tok == IDENTIFIER {
 					u.tagTok = tok
 					u.tagID = lit
@@ -567,11 +628,6 @@ func (u *unmarshaler) unmarshal(v interface{}) {
 					}
 					continue
 				}
-				// Consume the '=' and get the token and value for the property
-				u.tagTok, u.tagValue = u.ScanSkipWhitespace()
-
-				// type check
-				u.setTyp()
 
 				// Else if it's a reference
 			} else if tok == REF {
