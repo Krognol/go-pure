@@ -1,5 +1,5 @@
 package pure
- 
+
 import (
 	"bytes"
 	"fmt"
@@ -10,20 +10,21 @@ import (
 )
 
 type Parser struct {
-	buf        *bytes.Buffer
-	start, end int
-	line, col  int
-	src        []byte
+	buf                *bytes.Buffer
+	start, end, actual int
+	line, col          int
+	src                []byte
 }
 
 func NewParser(src []byte) *Parser {
 	return &Parser{
-		buf:   bytes.NewBuffer(src),
-		line:  1,
-		col:   0,
-		start: 0,
-		end:   0,
-		src:   src,
+		buf:    bytes.NewBuffer(src),
+		line:   1,
+		col:    0,
+		start:  0,
+		end:    0,
+		actual: 0,
+		src:    src,
 	}
 }
 
@@ -85,14 +86,10 @@ func isWhiteSpace(b byte) bool {
 
 func (p *Parser) consumeComment() {
 	for {
-		b, _ := p.buf.ReadByte()
+		b := p.getNext()
 		if b == 10 {
-			p.line++
-			p.col = 0
 			break
 		}
-		p.col++
-		p.end++
 	}
 }
 
@@ -165,26 +162,19 @@ func (p *Parser) getValue() string {
 
 	// Skip the leading whitespaces
 	for {
-		if b, _ := p.buf.ReadByte(); isWhiteSpace(b) {
-			p.col++
-			p.end++
+		if b := p.getNext(); isWhiteSpace(b) {
 			continue
 		}
 		p.buf.UnreadByte()
+		p.actual--
 		break
 	}
 
 	// Grab any byte until we hit a new line
 	for {
-		b, _ := p.buf.ReadByte()
+		b := p.getNext()
 
-		if b == 0 {
-			return s
-		}
-
-		if b == 10 {
-			p.line++
-			p.col = 0
+		if b == 0 || b == 10 {
 			break
 		}
 
@@ -252,21 +242,21 @@ func (p *Parser) fieldSetValue(field reflect.Value, val string, unq bool) error 
 }
 
 func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
-	// We're already consumed the bracket
+	// We've already consumed the bracket
 	// so just start getting the keys and values
 	// straight away
-
 	var (
 		key, value string
 	)
 	iv := indirect(reflect.ValueOf(v))
-	for b, _ := p.buf.ReadByte(); b != ']'; b, _ = p.buf.ReadByte() {
+	for b := p.getNext(); b != ']'; b = p.getNext() {
 		if isWhiteSpace(b) || b == '\r' {
 			continue
 		}
 
 		if b == 0 {
-			return iv, fmt.Errorf("Invalid map, missing ']'")
+			p.end = p.actual
+			return iv, fmt.Errorf("Invalid map property, missing ']'")
 		}
 
 		if !isAlNum(b) {
@@ -280,24 +270,28 @@ func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
 				case reflect.Int:
 					i, err := strconv.Atoi(value)
 					if err != nil {
+						p.end = p.actual
 						return iv, err
 					}
 					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(i))
 				case reflect.Float64:
 					f, err := strconv.ParseFloat(value, 64)
 					if err != nil {
+						p.end = p.actual
 						return iv, err
 					}
 					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(f))
 				case reflect.Bool:
 					bol, err := strconv.ParseBool(value)
 					if err != nil {
+						p.end = p.actual
 						return iv, err
 					}
 					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(bol))
 				case reflect.String:
 					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
 				default:
+					p.end = p.actual
 					return iv, fmt.Errorf("Invalid type %s", iv.Kind().String())
 				}
 				key, value = "", ""
@@ -309,16 +303,32 @@ func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
 	return iv, nil
 }
 
+func (p *Parser) getNext() byte {
+	b, _ := p.buf.ReadByte()
+	p.col++
+	p.actual++
+	if b == 10 {
+		p.line++
+		p.col = 0
+	}
+
+	if b == 0 {
+		p.col--
+		p.actual--
+	}
+	return b
+}
+
 func (p *Parser) parseArray(v interface{}) (reflect.Value, error) {
 	// Consume the '['
-	p.buf.ReadByte()
+	p.getNext()
 
 	value := indirect(reflect.ValueOf(v))
 	if value.Kind() == reflect.Map {
 		return p.parseMap(v)
 	}
 
-	for b, _ := p.buf.ReadByte(); b != ']'; b, _ = p.buf.ReadByte() {
+	for b := p.getNext(); b != ']'; b = p.getNext() {
 		val := p.getValue()
 		val = strings.Replace(val, "\r", "", -1)
 		switch value.Type().Elem().Kind() {
@@ -352,20 +362,15 @@ func (p *Parser) parseArray(v interface{}) (reflect.Value, error) {
 func (p *Parser) parseIdent(v interface{}) error {
 	var ident string
 	backup := v
+	p.start = p.actual
 	// While the current byte is a letter or number
 	// assume it's part of the identifier
 	for {
-		b, err := p.buf.ReadByte()
-		p.col++
-		p.end++
-		p.start = p.col
-
-		if err != nil {
-			p.reportErr("Buffer read error")
-			return err
-		}
+		b := p.getNext()
 
 		if b == 0 {
+			p.end = p.actual
+			p.reportErr("Identifier missing value")
 			return nil
 		}
 
@@ -375,7 +380,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 
 		if !isAlNum(b) {
 			p.buf.UnreadByte()
-			p.col--
+			p.actual--
 			break
 		}
 
@@ -384,11 +389,11 @@ func (p *Parser) parseIdent(v interface{}) error {
 
 	// Skip trailing whitespaces until we hit a '='
 	for {
-		b, _ := p.buf.ReadByte()
-		p.col++
-		p.end++
+		b := p.getNext()
+
 		if b == 0 {
-			p.end = p.col - 1
+			p.end = p.actual
+			p.reportErr("Identifier missing value")
 			break
 		}
 
@@ -397,8 +402,11 @@ func (p *Parser) parseIdent(v interface{}) error {
 		}
 
 		if b == 10 {
+			p.actual++
 			err := p.parseIdent(v)
 			if err != nil {
+				p.end = p.actual
+				p.reportErr(err.Error())
 				return err
 			}
 		}
@@ -408,13 +416,16 @@ func (p *Parser) parseIdent(v interface{}) error {
 			group, _ := getField(ident, reflect.ValueOf(v))
 			var field string
 			for {
-				b, _ := p.buf.ReadByte()
+				b := p.getNext()
 				if b == 0 {
+					p.end = p.actual - 1
+					p.reportErr("Missing group variable identifier")
 					break
 				}
 
 				if !isAlNum(b) {
 					p.buf.UnreadByte()
+					p.actual--
 					break
 				}
 
@@ -431,12 +442,14 @@ func (p *Parser) parseIdent(v interface{}) error {
 			field, unquoted := getField(ident, reflect.ValueOf(v))
 
 			if isWhiteSpace(p.peek()) {
-				p.buf.ReadByte()
+				p.getNext()
 			}
 
 			if p.peek() == '[' {
 				values, err := p.parseArray(field.Interface())
 				if err != nil {
+					p.end = p.actual
+					p.reportErr(err.Error())
 					return err
 				}
 
@@ -447,9 +460,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			// Check for reference values
 			if p.peek() == '>' {
 				// Consume the '>'
-				p.buf.ReadByte()
-				p.col++
-				p.end++
+				p.getNext()
 				getFrom := p.getValue()
 				getFrom = strings.Replace(getFrom, "\r", "", -1)
 
@@ -474,6 +485,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 				}
 				err := p.fieldSetValue(field, value, false)
 				if err != nil {
+					p.end = p.actual
 					p.reportErr("Couldn't set field value " + value)
 					return err
 				}
@@ -485,6 +497,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			val := p.getValue()
 			err := p.fieldSetValue(field, val, unquoted)
 			if err != nil {
+				p.end = p.actual
 				p.reportErr("Couldn't set field value " + val)
 				return err
 			}
@@ -492,12 +505,13 @@ func (p *Parser) parseIdent(v interface{}) error {
 		}
 
 		if p.peek() == 10 {
-			p.line++
+			p.actual++
 			for {
 				peek := p.peekn(2)
 				if peek[1] == '\t' || peek[1] == ' ' {
 					field, _ := getField(ident, reflect.ValueOf(v))
 					p.parseIdent(field.Interface())
+					p.actual++
 					continue
 				}
 				break
@@ -511,16 +525,11 @@ func (p *Parser) parseIdent(v interface{}) error {
 func (p *Parser) parseInclude(v interface{}) error {
 	var doInclude string
 	for {
-		b, err := p.buf.ReadByte()
-		p.col++
-		p.end++
-		p.start = p.col
-		if err != nil {
-			p.reportErr("Buffer read error")
-			return err
-		}
+		b := p.getNext()
 
 		if b == 0 || b == 10 {
+			p.end = p.actual
+			p.reportErr("No include specified")
 			return nil
 		}
 
@@ -530,9 +539,10 @@ func (p *Parser) parseInclude(v interface{}) error {
 			doInclude = ""
 
 			for {
-				b, err = p.buf.ReadByte()
+				b = p.getNext()
 
 				if b == 0 {
+					p.end = p.actual
 					break
 				}
 
@@ -545,16 +555,18 @@ func (p *Parser) parseInclude(v interface{}) error {
 						doInclude += string(b)
 						continue
 					}
+					p.end = p.actual
 					break
 				}
 				doInclude += string(b)
 			}
-
 			break
 		}
 	}
 	f, err := ioutil.ReadFile(doInclude)
 	if err != nil {
+		p.end = p.actual
+		p.reportErr("Couldn't open file '" + doInclude + "'")
 		return err
 	}
 	return Unmarshal(f, v)
@@ -562,21 +574,13 @@ func (p *Parser) parseInclude(v interface{}) error {
 
 func (p *Parser) unmarshal(v interface{}) error {
 	// While the current byte is not 0, we advance through the buffer
-	for b, err := p.buf.ReadByte(); b != 0; b, err = p.buf.ReadByte() {
-		p.col++
-		p.end++
-		if err != nil {
-			p.reportErr("Buffer read error")
-			return err
-		}
+	for b := p.getNext(); b != 0; b = p.getNext() {
 
 		if b == 0 {
 			break
 		}
 
 		if b == 10 {
-			p.line++
-			p.col = 0
 			continue
 		}
 
@@ -594,14 +598,16 @@ func (p *Parser) unmarshal(v interface{}) error {
 		// If we encounter a letter assume that it's an identifier with a value
 		if isAlpha(b) {
 			p.buf.UnreadByte()
-			err = p.parseIdent(v)
+			p.actual--
+			err := p.parseIdent(v)
 			if err != nil {
 				return err
 			}
 		}
 
 		if b == '%' {
-			err = p.parseInclude(v)
+			p.start = p.actual
+			err := p.parseInclude(v)
 			if err != nil {
 				p.reportErr("Couldn't include file")
 				return err
