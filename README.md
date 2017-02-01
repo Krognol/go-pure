@@ -4,7 +4,7 @@ The Pure specifications can be found [here](https://github.com/pureconfig/pureco
 
 # Setup
 
-`go get -u github.com/Krognol/go-pure`
+`go get -u github.com/Krognol/go-pure/pure`
 
 # Usage
 Pure file:
