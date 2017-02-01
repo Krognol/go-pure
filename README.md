@@ -431,8 +431,8 @@ map = [
 - [x] Character escaping
 - [x] Multiline values
 - [x] Encoding to Pure format
-- [ ] Unquoted strings
-- [ ] Schema support
+- [x] Unquoted strings
+- [ ] Schema support (Will probably come with the 2.0)
 
 # Contributing
 1. Fork it ( https://github.com/Krognol/go-pure/fork )
