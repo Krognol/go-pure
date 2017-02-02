@@ -29,7 +29,18 @@ func NewParser(src []byte) *Parser {
 }
 
 func (p *Parser) reportErr(msg string) {
-	fmt.Printf("Error [%d : %d] : %s\n%s\n", p.line, p.col, string(p.src[p.start:p.end]), msg)
+	// TODO :: Fix error reporting, p.start and p.end are not set properly
+	// Something going on with p.actual
+
+	var pointer string
+	point := fmt.Sprintf("Error [%d : %d] : %s", p.line, p.col, string(p.src[p.start:p.end]))
+
+	for i := 0; i < len(point)-1; i++ {
+		pointer += "-"
+	}
+	pointer += "^"
+
+	fmt.Printf("%s\n%s\n%s\n", point, pointer, msg)
 }
 
 // Shamelessly stolen from the Golang JSON decode source. Forgive
@@ -77,6 +88,7 @@ func isAlpha(b byte) bool {
 }
 
 func isAlNum(b byte) bool {
+	// Should allow special characters too for identifiers
 	return isAlpha(b) || isDigit(b) || b == '_'
 }
 
@@ -146,13 +158,20 @@ func (p *Parser) peek() byte {
 	return b
 }
 
+// Peek the first n bytes in the buffer
 func (p *Parser) peekn(n int) []byte {
+
+	// Keep a backup of the current buffer
 	backup := p.buf
 	var bs []byte
+
+	// Check the first n bytes
 	for i := 0; i < n; i++ {
 		b, _ := p.buf.ReadByte()
 		bs = append(bs, b)
 	}
+
+	// Turn back the clock
 	p.buf = backup
 	return bs
 }
@@ -307,6 +326,7 @@ func (p *Parser) getNext() byte {
 	b, _ := p.buf.ReadByte()
 	p.col++
 	p.actual++
+
 	if b == 10 {
 		p.line++
 		p.col = 0
@@ -397,18 +417,20 @@ func (p *Parser) parseIdent(v interface{}) error {
 			break
 		}
 
-		if isWhiteSpace(b) {
-			continue
+		if b == 10 {
+			for {
+				if p.peek() == '\t' || p.peek() == ' ' {
+					field, _ := getField(ident, reflect.ValueOf(v))
+					p.parseIdent(field.Interface())
+					continue
+				}
+				break
+			}
+			break
 		}
 
-		if b == 10 {
-			p.actual++
-			err := p.parseIdent(v)
-			if err != nil {
-				p.end = p.actual
-				p.reportErr(err.Error())
-				return err
-			}
+		if isWhiteSpace(b) {
+			continue
 		}
 
 		// We're assigning a group variable
@@ -504,20 +526,6 @@ func (p *Parser) parseIdent(v interface{}) error {
 			break
 		}
 
-		if p.peek() == 10 {
-			p.actual++
-			for {
-				peek := p.peekn(2)
-				if peek[1] == '\t' || peek[1] == ' ' {
-					field, _ := getField(ident, reflect.ValueOf(v))
-					p.parseIdent(field.Interface())
-					p.actual++
-					continue
-				}
-				break
-			}
-			break
-		}
 	}
 	return nil
 }
@@ -606,10 +614,9 @@ func (p *Parser) unmarshal(v interface{}) error {
 		}
 
 		if b == '%' {
-			p.start = p.actual
+			p.start = p.actual - 1
 			err := p.parseInclude(v)
 			if err != nil {
-				p.reportErr("Couldn't include file")
 				return err
 			}
 		}
