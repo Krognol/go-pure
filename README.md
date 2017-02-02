@@ -29,7 +29,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/Krognol/pure"
+	"github.com/Krognol/go-pure/pure"
 )
 
 type T struct {
@@ -67,8 +67,8 @@ func main() {
 Pure file:
 ```
 nested
-	anotherone
-		prop = "Hello, world!"
+    anotherone
+        prop = "Hello, world!"
 ```
 
 ```go
@@ -123,6 +123,7 @@ Main pure file:
 ```
 %include ./someincludefile.pure
 
+# For now this doesn't work
 aProperty = "some \
 			 weird text \
 			 here or something"
@@ -178,7 +179,7 @@ import (
 )
 
 type Q struct {
-	Quantity *pure.Quantity `pure:"quantity"`
+	Quantity string `pure:"quantity"`
 }
 
 func main() {
@@ -188,8 +189,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	println(q.Quantity.Value()) // => 5
-	println(q.Quantity.Unit())  // => 'm^2'
+	println(pure.QuantityValue(q.Quantity)) // => 5
+	println(pure.QuantityUnit(q.Quantity))  // => 'm^2'
 }
 ```
 
@@ -213,7 +214,7 @@ import (
 )
 
 type Env struct {
-	E *pure.Env `pure:"env"`
+	E string `pure:"env"`
 }
 
 func main() {
@@ -223,7 +224,7 @@ func main() {
 	if err != nil {
 		penic(err)
 	}
-	println(e.E.Expand()) // => X:\your\go\path
+	println(pure.EnvExpand(e.E)) // => X:\your\go\path
 	os.Exit(0)
 }
 
@@ -248,8 +249,8 @@ import(
 )
 
 type Dirs struct {
-	Dir *pure.Path `pure:"dir"`
-	File *pure.Path `pure:"file"`
+	Dir  string `pure:"dir"`
+	File string `pure:"file"`
 }
 
 func main() {
@@ -260,15 +261,15 @@ func main() {
 		panic(err)
 	}
 
-	println(dir.Dir.Base()) // => 'directory'
-	println(dir.File.FileExtension()) // => '.txt'
+	println(pure.DirBase(dir.Dir)) // => 'directory'
+	println(pure.FileExtension(dir.File)) // => '.txt'
 	os.Exit(0)
 }
 ```
 
 ## Arrays
 
-For now arrays only work for basic types (string, int, path...), and not for Groups.
+For now arrays only work for basic types (string, int, bool...), and not for Groups.
 
 Pure file:
 ```
@@ -278,13 +279,13 @@ array = [
 ]
 
 map = [
-	int = 123
-	anotherint = 321
+    int = 123
+    anotherint = 321
 ]
 
 map2 = [
-	group
-		int = 213
+    group
+        int = 213
 ]
 ```
 
@@ -306,6 +307,8 @@ type Group struct {
 type Array struct {
 	Arr []string `pure:"array"`
 	Map map[string]int `pure:"array"`
+	
+	// Haven't tested this for 2.0
 	GroupMap map[string]Group `pure:"map2"`
 }
 
@@ -352,12 +355,13 @@ type Group struct {
 }
 
 type EncodingTest struct {
-	Int    int                `pure:"int"`
-	Double float64            `pure:"double"`
-	String string             `pure:"string"`
-	Group  *Group             `pure:"group"`
-	Array  []int              `pure:"array"`
-	Map    map[string]float64 `pure:"map"`
+	Int            int                `pure:"int"`
+	Double         float64            `pure:"double"`
+	String         string             `pure:"string"`
+	Group          *Group             `pure:"group"`
+	Array          []int              `pure:"array"`
+	Map            map[string]float64 `pure:"map"`
+	UnquotedString string             `pure:"unquotedString,unquoted"`
 }
 
 func main() {
@@ -373,6 +377,7 @@ func main() {
 				String: "nesting test",
 			},
 		},
+		UnquotedString: "This is an unquoted string",
 	}
 	g.Array = []int{0, 1, 2, 3, 4}
 	g.Map = map[string]float64{"pi": 3.14, "two": 2.13, "one": 1.12, "zero": 0.11}
@@ -415,6 +420,8 @@ map = [
     zero = 0.11
 ]
 
+unquotedString = This is an unquoted string
+
 ```
 
 # Progress
@@ -429,7 +436,7 @@ map = [
 - [x] Arrays
 - [x] Include files
 - [x] Character escaping
-- [x] Multiline values
+- [ ] Multiline values
 - [x] Encoding to Pure format
 - [x] Unquoted strings
 - [ ] Schema support (Will probably come with the 2.0)
