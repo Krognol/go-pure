@@ -29,9 +29,6 @@ func NewParser(src []byte) *Parser {
 }
 
 func (p *Parser) reportErr(msg string) {
-	// TODO :: Fix error reporting, p.start and p.end are not set properly
-	// Something going on with p.actual
-
 	var pointer string
 	point := fmt.Sprintf("Error [%d : %d] : %s", p.line, p.col, string(p.src[p.start:p.end]))
 
@@ -177,8 +174,7 @@ func (p *Parser) peekn(n int) []byte {
 }
 
 func (p *Parser) getValue() string {
-	var s string
-
+	var buf = bytes.NewBuffer(nil)
 	// Skip the leading whitespaces
 	for {
 		if b := p.getNext(); isWhiteSpace(b) {
@@ -197,13 +193,13 @@ func (p *Parser) getValue() string {
 			break
 		}
 
-		s += string(b)
+		buf.WriteByte(b)
 	}
-	return s
+	return buf.String()
 }
 
 func (p *Parser) verifyValue(value string) string {
-	var s string
+	var buf = bytes.NewBuffer(nil)
 
 	for i := 0; i < len(value); i++ {
 
@@ -222,9 +218,9 @@ func (p *Parser) verifyValue(value string) string {
 				}
 			}
 		}
-		s += string(value[i])
+		buf.WriteByte(value[i])
 	}
-	return s
+	return buf.String()
 }
 
 func (p *Parser) fieldSetValue(field reflect.Value, val string, unq bool) error {
@@ -264,9 +260,8 @@ func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
 	// We've already consumed the bracket
 	// so just start getting the keys and values
 	// straight away
-	var (
-		key, value string
-	)
+	var buf = bytes.NewBuffer(nil)
+
 	iv := indirect(reflect.ValueOf(v))
 	for b := p.getNext(); b != ']'; b = p.getNext() {
 		if isWhiteSpace(b) || b == '\r' {
@@ -274,50 +269,51 @@ func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
 		}
 
 		if b == 0 {
-			p.end = p.actual
+			p.end = p.actual - 1
 			return iv, fmt.Errorf("Invalid map property, missing ']'")
 		}
 
 		if !isAlNum(b) {
 
-			// For now maps won't support referencing
 			// TODO :: Add map value referencing
+			// TODO :: Add map groups
 			if b == '=' {
-				value = strings.Replace(p.getValue(), "\r", "", -1)
+
+				value := strings.Replace(p.getValue(), "\r", "", -1)
 
 				switch iv.Type().Elem().Kind() {
 				case reflect.Int:
 					i, err := strconv.Atoi(value)
 					if err != nil {
-						p.end = p.actual
+						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(i))
+					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(i))
 				case reflect.Float64:
 					f, err := strconv.ParseFloat(value, 64)
 					if err != nil {
-						p.end = p.actual
+						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(f))
+					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(f))
 				case reflect.Bool:
 					bol, err := strconv.ParseBool(value)
 					if err != nil {
-						p.end = p.actual
+						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(bol))
+					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(bol))
 				case reflect.String:
-					iv.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(value))
 				default:
-					p.end = p.actual
+					p.end = p.actual - 1
 					return iv, fmt.Errorf("Invalid type %s", iv.Kind().String())
 				}
-				key, value = "", ""
+				buf.Reset()
 				continue
 			}
 		}
-		key += string(b)
+		buf.WriteByte(b)
 	}
 	return iv, nil
 }
@@ -380,7 +376,8 @@ func (p *Parser) parseArray(v interface{}) (reflect.Value, error) {
 }
 
 func (p *Parser) parseIdent(v interface{}) error {
-	var ident string
+
+	var buf = bytes.NewBuffer(nil)
 	backup := v
 	p.start = p.actual
 	// While the current byte is a letter or number
@@ -389,7 +386,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 		b := p.getNext()
 
 		if b == 0 {
-			p.end = p.actual
+			p.end = p.actual - 1
 			p.reportErr("Identifier missing value")
 			return nil
 		}
@@ -404,7 +401,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			break
 		}
 
-		ident += string(b)
+		buf.WriteByte(b)
 	}
 
 	// Skip trailing whitespaces until we hit a '='
@@ -412,7 +409,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 		b := p.getNext()
 
 		if b == 0 {
-			p.end = p.actual
+			p.end = p.actual - 1
 			p.reportErr("Identifier missing value")
 			break
 		}
@@ -420,7 +417,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 		if b == 10 {
 			for {
 				if p.peek() == '\t' || p.peek() == ' ' {
-					field, _ := getField(ident, reflect.ValueOf(v))
+					field, _ := getField(buf.String(), reflect.ValueOf(v))
 					p.parseIdent(field.Interface())
 					continue
 				}
@@ -435,8 +432,8 @@ func (p *Parser) parseIdent(v interface{}) error {
 
 		// We're assigning a group variable
 		if b == '.' {
-			group, _ := getField(ident, reflect.ValueOf(v))
-			var field string
+			group, _ := getField(buf.String(), reflect.ValueOf(v))
+			buf.Reset()
 			for {
 				b := p.getNext()
 				if b == 0 {
@@ -451,17 +448,17 @@ func (p *Parser) parseIdent(v interface{}) error {
 					break
 				}
 
-				field += string(b)
+				buf.WriteByte(b)
 			}
 
-			ident = field
+			//ident = field
 			v = group.Interface()
 		}
 
 		if b == '=' {
 			// Get the field from the struct that has a tag that matches
 			// ident
-			field, unquoted := getField(ident, reflect.ValueOf(v))
+			field, unquoted := getField(buf.String(), reflect.ValueOf(v))
 
 			if isWhiteSpace(p.peek()) {
 				p.getNext()
@@ -470,7 +467,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			if p.peek() == '[' {
 				values, err := p.parseArray(field.Interface())
 				if err != nil {
-					p.end = p.actual
+					p.end = p.actual - 1
 					p.reportErr(err.Error())
 					return err
 				}
@@ -483,35 +480,8 @@ func (p *Parser) parseIdent(v interface{}) error {
 			if p.peek() == '>' {
 				// Consume the '>'
 				p.getNext()
-				getFrom := p.getValue()
-				getFrom = strings.Replace(getFrom, "\r", "", -1)
+				return p.parseReference(field, backup)
 
-				if split := strings.Split(getFrom, "."); len(split) > 1 {
-					group, _ := getField(split[0], reflect.ValueOf(backup))
-					getFrom = split[1]
-					v = group.Interface()
-				}
-
-				fromField, _ := getField(getFrom, reflect.ValueOf(v))
-				var value string
-
-				switch fromField.Kind() {
-				case reflect.Int:
-					value = strconv.Itoa(int(fromField.Int()))
-				case reflect.Float64:
-					value = strconv.FormatFloat(fromField.Float(), 'f', 12, 64)
-				case reflect.Bool:
-					value = strconv.FormatBool(fromField.Bool())
-				default:
-					value = fromField.String()
-				}
-				err := p.fieldSetValue(field, value, false)
-				if err != nil {
-					p.end = p.actual
-					p.reportErr("Couldn't set field value " + value)
-					return err
-				}
-				break
 			}
 
 			// Get the value of the field and set it
@@ -519,7 +489,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			val := p.getValue()
 			err := p.fieldSetValue(field, val, unquoted)
 			if err != nil {
-				p.end = p.actual
+				p.end = p.actual - 1
 				p.reportErr("Couldn't set field value " + val)
 				return err
 			}
@@ -530,27 +500,59 @@ func (p *Parser) parseIdent(v interface{}) error {
 	return nil
 }
 
+func (p *Parser) parseReference(field reflect.Value, v interface{}) error {
+	getFrom := p.getValue()
+	getFrom = strings.Replace(getFrom, "\r", "", -1)
+
+	if split := strings.Split(getFrom, "."); len(split) > 1 {
+		group, _ := getField(split[0], reflect.ValueOf(v))
+		getFrom = split[1]
+		v = group.Interface()
+	}
+
+	fromField, _ := getField(getFrom, reflect.ValueOf(v))
+	var value string
+
+	switch fromField.Kind() {
+	case reflect.Int:
+		value = strconv.Itoa(int(fromField.Int()))
+	case reflect.Float64:
+		value = strconv.FormatFloat(fromField.Float(), 'f', 12, 64)
+	case reflect.Bool:
+		value = strconv.FormatBool(fromField.Bool())
+	default:
+		value = fromField.String()
+	}
+
+	err := p.fieldSetValue(field, value, false)
+	if err != nil {
+		p.end = p.actual - 1
+		p.reportErr("Couldn't set field value " + value)
+		return err
+	}
+	return nil
+}
+
 func (p *Parser) parseInclude(v interface{}) error {
-	var doInclude string
+	var buf = bytes.NewBuffer(nil)
+
 	for {
 		b := p.getNext()
 
 		if b == 0 || b == 10 {
-			p.end = p.actual
+			p.end = p.actual - 1
 			p.reportErr("No include specified")
 			return nil
 		}
 
-		doInclude += string(b)
+		buf.WriteByte(b)
 
-		if doInclude == "include" {
-			doInclude = ""
-
+		if buf.String() == "include" {
+			buf.Reset()
 			for {
 				b = p.getNext()
 
 				if b == 0 {
-					p.end = p.actual
 					break
 				}
 
@@ -560,21 +562,20 @@ func (p *Parser) parseInclude(v interface{}) error {
 
 				if !isAlNum(b) {
 					if b == '.' || b == '/' || b == '\\' {
-						doInclude += string(b)
+						buf.WriteByte(b)
 						continue
 					}
-					p.end = p.actual
 					break
 				}
-				doInclude += string(b)
+				buf.WriteByte(b)
 			}
 			break
 		}
 	}
-	f, err := ioutil.ReadFile(doInclude)
+	f, err := ioutil.ReadFile(buf.String())
 	if err != nil {
 		p.end = p.actual
-		p.reportErr("Couldn't open file '" + doInclude + "'")
+		p.reportErr("Couldn't open file '" + buf.String() + "'")
 		return err
 	}
 	return Unmarshal(f, v)
