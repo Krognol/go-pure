@@ -16,15 +16,11 @@ type Parser struct {
 	src                []byte
 }
 
-func NewParser(src []byte) *Parser {
+func newParser(src []byte) *Parser {
 	return &Parser{
-		buf:    bytes.NewBuffer(src),
-		line:   1,
-		col:    0,
-		start:  0,
-		end:    0,
-		actual: 0,
-		src:    src,
+		buf:  bytes.NewBuffer(src),
+		line: 1,
+		src:  src,
 	}
 }
 
@@ -95,8 +91,7 @@ func isWhiteSpace(b byte) bool {
 
 func (p *Parser) consumeComment() {
 	for {
-		b := p.getNext()
-		if b == 10 {
+		if p.getNext() == 10 {
 			break
 		}
 	}
@@ -105,10 +100,12 @@ func (p *Parser) consumeComment() {
 func getField(ident string, v reflect.Value) (reflect.Value, bool) {
 	var isUnquoted bool
 	lenIdent := len(ident)
+	var iv reflect.Value
+	var tag string
 	if v.Kind() == reflect.Ptr {
-		iv := indirect(v.Elem())
+		iv = indirect(v.Elem())
 		for i := 0; i < iv.NumField(); i++ {
-			tag := iv.Type().Field(i).Tag.Get("pure")
+			tag = iv.Type().Field(i).Tag.Get("pure")
 
 			if len(tag) >= lenIdent && tag[lenIdent:] == ",unquoted" {
 				isUnquoted = true
@@ -127,11 +124,11 @@ func getField(ident string, v reflect.Value) (reflect.Value, bool) {
 	}
 
 	if v.Kind() == reflect.Struct {
-		iv := indirect(v)
+		iv = indirect(v)
 		tv := reflect.TypeOf(v.Interface())
 
 		for i := 0; i < iv.NumField(); i++ {
-			tag := tv.Field(i).Tag.Get("pure")
+			tag = tv.Field(i).Tag.Get("pure")
 
 			if len(tag) >= lenIdent && tag[lenIdent:] == ",unquoted" {
 				isUnquoted = true
@@ -160,24 +157,25 @@ func (p *Parser) peekn(n int) []byte {
 
 	// Keep a backup of the current buffer
 	backup := p.buf
-	var bs []byte
+	bs := [64]byte{}
 
 	// Check the first n bytes
 	for i := 0; i < n; i++ {
 		b, _ := p.buf.ReadByte()
-		bs = append(bs, b)
+		bs[i] = b
 	}
 
-	// Turn back the clock
+	// Rewind
 	p.buf = backup
-	return bs
+	return bs[:n]
 }
 
 func (p *Parser) getValue() []byte {
 	var buf = bytes.NewBuffer(nil)
+	var b byte
 	// Skip the leading whitespaces
 	for {
-		if b := p.getNext(); isWhiteSpace(b) {
+		if isWhiteSpace(p.getNext()) {
 			continue
 		}
 		p.buf.UnreadByte()
@@ -187,7 +185,22 @@ func (p *Parser) getValue() []byte {
 
 	// Grab any byte until we hit a new line
 	for {
-		b := p.getNext()
+		b = p.getNext()
+
+		if b == '\\' {
+			peek := p.peek()
+			if peek == ' ' || peek == '\r' || peek == '\n' {
+				p.getNext()
+				p.getNext()
+				for {
+					if !isWhiteSpace(p.getNext()) {
+						p.buf.UnreadByte()
+						break
+					}
+				}
+				continue
+			}
+		}
 
 		if b == 0 || b == 10 {
 			break
@@ -206,34 +219,27 @@ func (p *Parser) verifyValue(value string) string {
 		// Character escape
 		if value[i] == '\\' {
 			i++
-		}
-
-		if value[i] == ' ' && i+1 < len(value) {
-			if value[i+1] == '\r' {
-				for {
-					i += 2
-					if !isWhiteSpace(value[i]) {
-						break
-					}
-				}
+			if i > len(value) {
+				i--
+				break
 			}
 		}
+
 		buf.WriteByte(value[i])
 	}
 	return buf.String()
 }
 
 func (p *Parser) fieldSetValue(field reflect.Value, val string, unq bool) error {
-	// For now we remove all carriage returns, but should make a string value verifier
-	// in the future
+
 	val = strings.Replace(val, "\r", "", -1)
 	switch field.Kind() {
 	case reflect.Int:
-		i, err := strconv.Atoi(val)
+		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		field.SetInt(int64(i))
+		field.SetInt(i)
 	case reflect.Float32, reflect.Float64:
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
@@ -256,13 +262,13 @@ func (p *Parser) fieldSetValue(field reflect.Value, val string, unq bool) error 
 	return nil
 }
 
-func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
+func (p *Parser) parseMap(v reflect.Value) (reflect.Value, error) {
 	// We've already consumed the bracket
 	// so just start getting the keys and values
 	// straight away
 	var buf = bytes.NewBuffer(nil)
 
-	iv := indirect(reflect.ValueOf(v))
+	iv := indirect(v)
 	for b := p.getNext(); b != ']'; b = p.getNext() {
 		if isWhiteSpace(b) || b == '\r' {
 			continue
@@ -280,36 +286,36 @@ func (p *Parser) parseMap(v interface{}) (reflect.Value, error) {
 			if b == '=' {
 
 				value := bytes.Replace(p.getValue(), []byte("\r"), nil, -1)
-
+				var mval reflect.Value
 				switch iv.Type().Elem().Kind() {
 				case reflect.Int:
-
 					i, err := strconv.Atoi(string(value))
 					if err != nil {
 						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(i))
+					mval = reflect.ValueOf(i)
 				case reflect.Float64:
 					f, err := strconv.ParseFloat(string(value), 64)
 					if err != nil {
 						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(f))
+					mval = reflect.ValueOf(f)
 				case reflect.Bool:
 					bol, err := strconv.ParseBool(string(value))
 					if err != nil {
 						p.end = p.actual - 1
 						return iv, err
 					}
-					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(bol))
+					mval = reflect.ValueOf(bol)
 				case reflect.String:
-					iv.SetMapIndex(reflect.ValueOf(buf.String()), reflect.ValueOf(string(value)))
+					mval = reflect.ValueOf(string(value))
 				default:
 					p.end = p.actual - 1
 					return iv, fmt.Errorf("Invalid type %s", iv.Kind().String())
 				}
+				iv.SetMapIndex(reflect.ValueOf(buf.String()), mval)
 				buf.Reset()
 				continue
 			}
@@ -336,55 +342,57 @@ func (p *Parser) getNext() byte {
 	return b
 }
 
-func (p *Parser) parseArray(v interface{}) (reflect.Value, error) {
+func (p *Parser) parseArray(v reflect.Value) (reflect.Value, error) {
 	// Consume the '['
 	p.getNext()
+	var val []byte
+	value := indirect(v)
 
-	value := indirect(reflect.ValueOf(v))
 	if value.Kind() == reflect.Map {
 		return p.parseMap(v)
 	}
 
 	for b := p.getNext(); b != ']'; b = p.getNext() {
-		val := p.getValue()
-		val = bytes.Replace(val, []byte("\r"), nil, -1)
+		val = bytes.Replace(p.getValue(), []byte("\r"), nil, -1)
+		var app reflect.Value
 		switch value.Type().Elem().Kind() {
 		case reflect.Int:
 			i, err := strconv.Atoi(string(val))
 			if err != nil {
 				return value, err
 			}
-			value = reflect.Append(value, reflect.ValueOf(i))
+			app = reflect.ValueOf(i)
 		case reflect.Float64:
 			f, err := strconv.ParseFloat(string(val), 64)
 			if err != nil {
 				return value, err
 			}
-			value = reflect.Append(value, reflect.ValueOf(f))
+			app = reflect.ValueOf(f)
 		case reflect.Bool:
 			bol, err := strconv.ParseBool(string(val))
 			if err != nil {
 				return value, err
 			}
-			value = reflect.Append(value, reflect.ValueOf(bol))
+			app = reflect.ValueOf(bol)
 		case reflect.String:
-			value = reflect.Append(value, reflect.ValueOf(string(val)))
+			app = reflect.ValueOf(string(val))
 		default:
 			return value, fmt.Errorf("Invalid type %s", value.Kind().String())
 		}
+		value = reflect.Append(value, app)
 	}
 	return value, nil
 }
 
-func (p *Parser) parseIdent(v interface{}) error {
-
+func (p *Parser) parseIdent(v reflect.Value) error {
+	var b byte
 	var buf = bytes.NewBuffer(nil)
 	backup := v
 	p.start = p.actual
 	// While the current byte is a letter or number
 	// assume it's part of the identifier
 	for {
-		b := p.getNext()
+		b = p.getNext()
 
 		if b == 0 {
 			p.end = p.actual - 1
@@ -407,7 +415,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 
 	// Skip trailing whitespaces until we hit a '='
 	for {
-		b := p.getNext()
+		b = p.getNext()
 
 		if b == 0 {
 			p.end = p.actual - 1
@@ -418,8 +426,8 @@ func (p *Parser) parseIdent(v interface{}) error {
 		if b == 10 {
 			for {
 				if p.peek() == '\t' || p.peek() == ' ' {
-					field, _ := getField(buf.String(), reflect.ValueOf(v))
-					p.parseIdent(field.Interface())
+					field, _ := getField(buf.String(), v)
+					p.parseIdent(field)
 					continue
 				}
 				break
@@ -433,10 +441,10 @@ func (p *Parser) parseIdent(v interface{}) error {
 
 		// We're assigning a group variable
 		if b == '.' {
-			group, _ := getField(buf.String(), reflect.ValueOf(v))
+			group, _ := getField(buf.String(), v)
 			buf.Reset()
 			for {
-				b := p.getNext()
+				b = p.getNext()
 				if b == 0 {
 					p.end = p.actual - 1
 					p.reportErr("Missing group variable identifier")
@@ -453,20 +461,21 @@ func (p *Parser) parseIdent(v interface{}) error {
 			}
 
 			//ident = field
-			v = group.Interface()
+			v = group
 		}
 
 		if b == '=' {
 			// Get the field from the struct that has a tag that matches
 			// ident
-			field, unquoted := getField(buf.String(), reflect.ValueOf(v))
-
-			if isWhiteSpace(p.peek()) {
+			field, unquoted := getField(buf.String(), v)
+			peek := p.peek()
+			if isWhiteSpace(peek) {
 				p.getNext()
+				peek = p.peek()
 			}
 
-			if p.peek() == '[' {
-				values, err := p.parseArray(field.Interface())
+			if peek == '[' {
+				values, err := p.parseArray(field)
 				if err != nil {
 					p.end = p.actual - 1
 					p.reportErr(err.Error())
@@ -478,7 +487,7 @@ func (p *Parser) parseIdent(v interface{}) error {
 			}
 
 			// Check for reference values
-			if p.peek() == '>' {
+			if peek == '>' {
 				// Consume the '>'
 				p.getNext()
 				return p.parseReference(field, backup)
@@ -501,17 +510,17 @@ func (p *Parser) parseIdent(v interface{}) error {
 	return nil
 }
 
-func (p *Parser) parseReference(field reflect.Value, v interface{}) error {
+func (p *Parser) parseReference(field reflect.Value, v reflect.Value) error {
 	getFrom := p.getValue()
 	getFrom = bytes.Replace(getFrom, []byte("\r"), nil, -1)
 
 	if index := bytes.IndexByte(getFrom, '.'); index != -1 {
-		group, _ := getField(string(getFrom[:index]), reflect.ValueOf(v))
+		group, _ := getField(string(getFrom[:index]), v)
 		getFrom = getFrom[index+1:]
-		v = group.Interface()
+		v = group
 	}
 
-	fromField, _ := getField(string(getFrom), reflect.ValueOf(v))
+	fromField, _ := getField(string(getFrom), v)
 	var value string
 
 	switch fromField.Kind() {
@@ -609,7 +618,7 @@ func (p *Parser) unmarshal(v interface{}) error {
 		if isAlpha(b) {
 			p.buf.UnreadByte()
 			p.actual--
-			err := p.parseIdent(v)
+			err := p.parseIdent(reflect.ValueOf(v))
 			if err != nil {
 				return err
 			}
@@ -628,7 +637,7 @@ func (p *Parser) unmarshal(v interface{}) error {
 
 // Unmarshal decodes a Pure source into a golang struct
 func Unmarshal(src []byte, v interface{}) error {
-	parser := NewParser(src)
+	parser := newParser(src)
 
 	// Make sure the supplied type is a pointer
 	if reflect.ValueOf(v).Kind() != reflect.Ptr {
