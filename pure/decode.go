@@ -354,6 +354,9 @@ func (p *Parser) parseArray(v reflect.Value) (reflect.Value, error) {
 
 	for b := p.getNext(); b != ']'; b = p.getNext() {
 		val = bytes.Replace(p.getValue(), []byte("\r"), nil, -1)
+		if len(val) <= 0 {
+			continue
+		}
 		var app reflect.Value
 		switch value.Type().Elem().Kind() {
 		case reflect.Int:
@@ -375,7 +378,8 @@ func (p *Parser) parseArray(v reflect.Value) (reflect.Value, error) {
 			}
 			app = reflect.ValueOf(bol)
 		case reflect.String:
-			app = reflect.ValueOf(string(val))
+			str := string(val)
+			app = reflect.ValueOf(str[1 : len(str)-1])
 		default:
 			return value, fmt.Errorf("Invalid type %s", value.Kind().String())
 		}
